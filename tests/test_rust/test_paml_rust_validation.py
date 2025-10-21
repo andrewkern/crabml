@@ -91,17 +91,15 @@ class TestRustPAMLValidation:
 
     def test_rust_m1a_likelihood_matches_paml(self, lysozyme_data):
         """
-        Test Rust M1a likelihood matches PAML reference.
+        Test Rust M1a likelihood matches PAML reference EXACTLY.
 
         PAML reference (from lysozyme_m1a_out.txt):
         lnL = -902.503872
         kappa = 4.29790
         p: [0.41271, 0.58729]
-        w: [0.00000, 1.00000]
+        w: [0.000001, 1.00000]  (PAML uses 1e-6, not 0.0)
 
-        Note: omega0=0.0 exactly can cause numerical issues. PAML likely uses
-        a small epsilon. We use 1e-8 which is effectively zero but numerically stable.
-        Both Python and Rust show ~10 log-likelihood unit difference from PAML.
+        With PAML-style weighted-average normalization, Rust matches PAML exactly!
         """
         aln = lysozyme_data["alignment"]
         pi = lysozyme_data["pi"]
@@ -115,11 +113,11 @@ class TestRustPAMLValidation:
         )
         tree = Tree.from_newick(tree_str)
 
-        # Create M1a model with PAML's optimized parameters
-        # Use small epsilon instead of exact 0 to avoid numerical instability
+        # Create M1a model with PAML's ACTUAL optimized parameters
+        # PAML uses omega0=0.000001 (from parameter line in output)
         model = M1aCodonModel(
             kappa=4.29790,
-            omega0=1e-8,  # Effectively zero but numerically stable
+            omega0=0.000001,  # PAML's actual value
             p0=0.41271,
             pi=pi
         )
@@ -142,12 +140,13 @@ class TestRustPAMLValidation:
         print(f"  Difference:   {abs(lnL_rust - paml_lnL):.6f}")
         print(f"  Relative:     {abs(lnL_rust - paml_lnL)/abs(paml_lnL)*100:.4f}%")
 
-        # Site class models may have ~1-2% tolerance due to numerical differences
+        # With PAML-style normalization, should match to machine precision
         np.testing.assert_allclose(
             lnL_rust,
             paml_lnL,
-            rtol=0.02,
-            err_msg="Rust M1a likelihood should match PAML reference within 2%"
+            rtol=1e-5,
+            atol=1e-5,
+            err_msg="Rust M1a likelihood should match PAML exactly"
         )
 
     def test_rust_m2a_likelihood_matches_paml(self, lysozyme_data):
@@ -200,12 +199,13 @@ class TestRustPAMLValidation:
         print(f"  Difference:   {abs(lnL_rust - paml_lnL):.6f}")
         print(f"  Relative:     {abs(lnL_rust - paml_lnL)/abs(paml_lnL)*100:.4f}%")
 
-        # Site class models may have ~1-2% tolerance
+        # With PAML-style normalization, should match to machine precision
         np.testing.assert_allclose(
             lnL_rust,
             paml_lnL,
-            rtol=0.02,
-            err_msg="Rust M2a likelihood should match PAML reference within 2%"
+            rtol=1e-5,
+            atol=1e-5,
+            err_msg="Rust M2a likelihood should match PAML exactly"
         )
 
     def test_rust_m3_likelihood_matches_paml(self, lysozyme_data):
@@ -256,12 +256,13 @@ class TestRustPAMLValidation:
         print(f"  Difference:   {abs(lnL_rust - paml_lnL):.6f}")
         print(f"  Relative:     {abs(lnL_rust - paml_lnL)/abs(paml_lnL)*100:.4f}%")
 
-        # Site class models may have ~1-2% tolerance
+        # With PAML-style normalization, should match to machine precision
         np.testing.assert_allclose(
             lnL_rust,
             paml_lnL,
-            rtol=0.02,
-            err_msg="Rust M3 likelihood should match PAML reference within 2%"
+            rtol=1e-5,
+            atol=1e-5,
+            err_msg="Rust M3 likelihood should match PAML exactly"
         )
 
     def test_rust_vs_python_identical_results(self, lysozyme_data):
@@ -334,10 +335,10 @@ class TestRustPAMLValidation:
         )
         tree = Tree.from_newick(tree_str)
 
-        # M1a model - use epsilon to avoid omega=0.0 numerical issues
+        # M1a model with PAML's actual parameters
         model = M1aCodonModel(
             kappa=4.29790,
-            omega0=1e-8,  # Effectively zero but numerically stable
+            omega0=0.000001,  # PAML's actual value
             p0=0.41271,
             pi=pi
         )

@@ -82,7 +82,7 @@ def is_synonymous(codon1: str, codon2: str) -> bool:
     return GENETIC_CODE[codon1] == GENETIC_CODE[codon2]
 
 
-def build_codon_Q_matrix(kappa: float, omega: float, pi: np.ndarray) -> np.ndarray:
+def build_codon_Q_matrix(kappa: float, omega: float, pi: np.ndarray, normalization_factor: float = None) -> np.ndarray:
     """
     Build a codon rate matrix Q for given kappa, omega, and pi.
 
@@ -96,6 +96,9 @@ def build_codon_Q_matrix(kappa: float, omega: float, pi: np.ndarray) -> np.ndarr
         dN/dS ratio
     pi : np.ndarray, shape (61,)
         Codon frequencies
+    normalization_factor : float, optional
+        If provided, use this specific normalization factor instead of computing one.
+        This is used for site class models to ensure all Q matrices use the same scale.
 
     Returns
     -------
@@ -136,7 +139,13 @@ def build_codon_Q_matrix(kappa: float, omega: float, pi: np.ndarray) -> np.ndarr
             S[i, j] = s
 
     # Create reversible Q matrix
-    Q = create_reversible_Q(S, pi, normalize=True)
+    if normalization_factor is not None:
+        # Use provided normalization factor (for site class models)
+        Q = create_reversible_Q(S, pi, normalize=False)
+        Q = Q / normalization_factor
+    else:
+        # Compute normalization from this Q matrix alone
+        Q = create_reversible_Q(S, pi, normalize=True)
 
     return Q
 
@@ -246,13 +255,29 @@ class M1aCodonModel:
         """
         Get Q matrices for each site class.
 
+        Following PAML's approach, each Q matrix is normalized independently,
+        then scaled so all share the same effective branch length scale.
+
         Returns
         -------
         list[np.ndarray]
             List of Q matrices, one per site class
         """
-        _, omegas = self.get_site_classes()
-        return [build_codon_Q_matrix(self.kappa, omega, self.pi) for omega in omegas]
+        proportions, omegas = self.get_site_classes()
+
+        # Build each Q matrix with its own omega, WITHOUT normalization
+        Q_list_unnorm = [build_codon_Q_matrix(self.kappa, omega, self.pi, normalization_factor=1.0)
+                         for omega in omegas]
+
+        # Compute normalization factors for each UNNORMALIZED Q matrix
+        norm_factors = [-np.dot(self.pi, np.diag(Q)) for Q in Q_list_unnorm]
+
+        # Compute weighted average normalization (PAML's Qfactor_NS)
+        weighted_avg_norm = sum(p * norm for p, norm in zip(proportions, norm_factors))
+
+        # Normalize all Q matrices by the weighted average normalization
+        # This makes all Q matrices share the same effective time scale
+        return [Q / weighted_avg_norm for Q in Q_list_unnorm]
 
 
 class M2aCodonModel:
@@ -318,9 +343,26 @@ class M2aCodonModel:
         return proportions, omegas
 
     def get_Q_matrices(self) -> list[np.ndarray]:
-        """Get Q matrices for each site class."""
-        _, omegas = self.get_site_classes()
-        return [build_codon_Q_matrix(self.kappa, omega, self.pi) for omega in omegas]
+        """
+        Get Q matrices for each site class.
+
+        Following PAML's approach, all Q matrices are normalized by the same
+        weighted-average normalization factor.
+        """
+        proportions, omegas = self.get_site_classes()
+
+        # Build each Q matrix with its own omega, WITHOUT normalization
+        Q_list_unnorm = [build_codon_Q_matrix(self.kappa, omega, self.pi, normalization_factor=1.0)
+                         for omega in omegas]
+
+        # Compute normalization factors for each UNNORMALIZED Q matrix
+        norm_factors = [-np.dot(self.pi, np.diag(Q)) for Q in Q_list_unnorm]
+
+        # Compute weighted average normalization (PAML's Qfactor_NS)
+        weighted_avg_norm = sum(p * norm for p, norm in zip(proportions, norm_factors))
+
+        # Normalize all Q matrices by the weighted average normalization
+        return [Q / weighted_avg_norm for Q in Q_list_unnorm]
 
 
 class M3CodonModel:
@@ -378,5 +420,21 @@ class M3CodonModel:
         return self.proportions, self.omegas
 
     def get_Q_matrices(self) -> list[np.ndarray]:
-        """Get Q matrices for each site class."""
-        return [build_codon_Q_matrix(self.kappa, omega, self.pi) for omega in self.omegas]
+        """
+        Get Q matrices for each site class.
+
+        Following PAML's approach, all Q matrices are normalized by the same
+        weighted-average normalization factor.
+        """
+        # Build each Q matrix with its own omega, WITHOUT normalization
+        Q_list_unnorm = [build_codon_Q_matrix(self.kappa, omega, self.pi, normalization_factor=1.0)
+                         for omega in self.omegas]
+
+        # Compute normalization factors for each UNNORMALIZED Q matrix
+        norm_factors = [-np.dot(self.pi, np.diag(Q)) for Q in Q_list_unnorm]
+
+        # Compute weighted average normalization (PAML's Qfactor_NS)
+        weighted_avg_norm = sum(p * norm for p, norm in zip(self.proportions, norm_factors))
+
+        # Normalize all Q matrices by the weighted average normalization
+        return [Q / weighted_avg_norm for Q in Q_list_unnorm]
