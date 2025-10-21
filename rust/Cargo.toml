@@ -1,0 +1,25 @@
+[package]
+name = "pycodeml_rust"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pycodeml_rust"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+numpy = "0.22"
+ndarray = { version = "0.16", features = ["blas"] }
+blas-src = { version = "0.10", features = ["openblas"] }
+lapack-src = { version = "0.10", features = ["openblas"] }
+ndarray-linalg = { version = "0.17", features = ["openblas-static"] }
+rayon = "1.10"
+
+[dev-dependencies]
+approx = "0.5"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

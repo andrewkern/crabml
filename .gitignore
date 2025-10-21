@@ -20,6 +20,7 @@ htmlcov/
 
 # Session tracking and analysis docs
 claude.md
+CLAUDE.md
 ANALYSIS_*.md
 SESSION_*.md
 STATUS.md
