@@ -1,0 +1,40 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Session tracking and analysis docs
+claude.md
+ANALYSIS_*.md
+SESSION_*.md
+STATUS.md
+IMPLEMENTATION_STATUS.md
+VALIDATION_*.md
+PAML_*.md
+README_ANALYSIS.md
+BACKEND_OPTIONS.md
+CODON_MODELS.md
+IMPLEMENTATION_PLAN.md
+
+# Node modules (if any)
+node_modules/
+package-lock.json
+package.json
+
+# PAML external directory
+paml/
