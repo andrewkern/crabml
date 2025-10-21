@@ -90,7 +90,6 @@ class TestRustPAMLValidation:
             err_msg="Rust M0 likelihood should match PAML reference within 0.3%"
         )
 
-    @pytest.mark.skip(reason="M1a with omega0=1e-8 still produces NaN in Rust - needs investigation")
     def test_rust_m1a_likelihood_matches_paml(self, lysozyme_data):
         """
         Test Rust M1a likelihood matches PAML reference.
@@ -312,7 +311,6 @@ class TestRustPAMLValidation:
             err_msg="Rust and Python should produce identical results"
         )
 
-    @pytest.mark.skip(reason="M1a with omega0=1e-8 still produces NaN in Rust - needs investigation")
     def test_rust_site_class_vs_python_identical(self, lysozyme_data):
         """
         Verify Rust parallelized site class calculations match Python.

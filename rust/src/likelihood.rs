@@ -148,6 +148,7 @@ impl LikelihoodCalculator {
         let root_likelihoods = self.workspace.slice(s![root_idx, .., ..]);
 
         // Site likelihoods: sum_i (L_root[site, i] * pi[i])
+        // CRITICAL: Clamp to minimum like PAML (lfun line 7794: fh = 1e-80)
         let mut log_likelihood = 0.0;
         for site in 0..self.n_sites {
             let site_lnl: f64 = root_likelihoods.slice(s![site, ..])
@@ -156,7 +157,9 @@ impl LikelihoodCalculator {
                 .map(|(&l, &p)| l * p)
                 .sum();
 
-            log_likelihood += (site_lnl + 1e-100).ln();
+            // Clamp to minimum value like PAML (prevents log(0) = -inf)
+            let clamped = site_lnl.max(1e-300);
+            log_likelihood += clamped.ln();
         }
 
         log_likelihood
@@ -290,22 +293,29 @@ impl LikelihoodCalculator {
 
     /// Compute log(∑_k p_k * L_k) from likelihoods (not log-likelihoods)
     ///
-    /// Uses numerically stable log-sum-exp algorithm:
-    /// log(∑_k p_k * L_k) = log(∑_k p_k * exp(log(L_k)))
-    ///                     = log(∑_k exp(log(p_k) + log(L_k)))
+    /// Uses numerically stable log-sum-exp algorithm matching PAML:
+    /// log(∑_k p_k * L_k) = log(∑_k exp(log(p_k) + log(L_k)))
     ///                     = max + log(∑_k exp(log(p_k) + log(L_k) - max))
+    ///
+    /// CRITICAL: likelihoods are in LINEAR space, not log space!
+    /// This matches PAML's lfundG() implementation (treesub.c:7640-7652)
     #[inline]
     fn log_sum_exp_likelihoods(&self, likelihoods: &[f64], proportions: &[f64]) -> f64 {
-        // Convert to log space: log(p_k) + log(L_k)
+        // Clamp likelihoods to prevent underflow (PAML uses 1e-300)
+        // Then convert to log space: log(p_k) + log(L_k)
         let log_weighted: Vec<f64> = likelihoods.iter()
             .zip(proportions)
-            .map(|(&lnl, &p)| (lnl + 1e-100).ln() + p.ln())
+            .map(|(&lik, &p)| {
+                // Clamp to minimum value like PAML (line 7650: fh = 1e-300)
+                let clamped_lik = lik.max(1e-300);
+                clamped_lik.ln() + p.ln()
+            })
             .collect();
 
-        // Find max for numerical stability
+        // Find max for numerical stability (PAML line 7633-7634)
         let max_log = log_weighted.iter().copied().fold(f64::NEG_INFINITY, f64::max);
 
-        // Compute log(sum(exp(log_weighted - max)))
+        // Compute log(sum(exp(log_weighted - max))) (PAML line 7637-7638)
         let sum: f64 = log_weighted.iter()
             .map(|&x| (x - max_log).exp())
             .sum();
