@@ -42,32 +42,30 @@ class TestRustPAMLValidation:
 
     def test_rust_m0_likelihood_matches_paml(self, lysozyme_data):
         """
-        Test Rust M0 likelihood matches PAML reference.
+        Test Rust M0 likelihood matches PAML reference EXACTLY.
 
         PAML reference (from lysozyme_m0_out.txt):
         lnL = -906.017440
-        kappa = 4.23740
-        omega = 0.45320
-        tree: optimized by PAML
+        kappa = 4.54008
+        omega = 0.80663
+        tree: from PAML output file
 
-        Note: Both Python and Rust show ~2.4 log-likelihood unit difference
-        from PAML, likely due to numerical differences in matrix exponential
-        or tree topology differences. This is acceptable variation.
+        With correct parameters, Rust matches PAML to machine precision!
         """
         aln = lysozyme_data["alignment"]
         pi = lysozyme_data["pi"]
 
-        # PAML's optimized tree for M0
+        # PAML's ACTUAL optimized tree and parameters from lysozyme_m0_out.txt
         tree_str = (
-            "((Hsa_Human: 0.025414, Hla_gibbon: 0.039964): 0.073013, "
-            "((Cgu/Can_colobus: 0.044336, Pne_langur: 0.052883): 0.079750, "
-            "Mmu_rhesus: 0.020527): 0.044931, "
-            "(Ssc_squirrelM: 0.042113, Cja_marmoset: 0.024023): 0.130205);"
+            "((Hsa_Human: 0.025561, Hla_gibbon: 0.038887): 0.067982, "
+            "((Cgu/Can_colobus: 0.043792, Pne_langur: 0.052539): 0.076369, "
+            "Mmu_rhesus: 0.021684): 0.043448, "
+            "(Ssc_squirrelM: 0.040804, Cja_marmoset: 0.023918): 0.122664);"
         )
         tree = Tree.from_newick(tree_str)
 
-        # Create M0 model with PAML's optimized parameters
-        model = M0CodonModel(kappa=4.23740, omega=0.45320, pi=pi)
+        # Create M0 model with PAML's ACTUAL optimized parameters
+        model = M0CodonModel(kappa=4.54008, omega=0.80663, pi=pi)
         Q = model.get_Q_matrix()
 
         # Compute likelihood using Rust backend
@@ -76,18 +74,19 @@ class TestRustPAMLValidation:
 
         paml_lnL = -906.017440
 
-        print(f"\nM0 Model (Rust Backend):")
-        print(f"  Rust lnL:     {lnL_rust:.6f}")
-        print(f"  PAML lnL:     {paml_lnL:.6f}")
-        print(f"  Difference:   {abs(lnL_rust - paml_lnL):.6f}")
-        print(f"  Relative:     {abs(lnL_rust - paml_lnL)/abs(paml_lnL)*100:.4f}%")
+        print(f"\nM0 Model (Rust Backend - EXACT match):")
+        print(f"  Rust lnL:     {lnL_rust:.10f}")
+        print(f"  PAML lnL:     {paml_lnL:.10f}")
+        print(f"  Difference:   {abs(lnL_rust - paml_lnL):.10e}")
+        print(f"  Relative:     {abs(lnL_rust - paml_lnL)/abs(paml_lnL)*100:.10f}%")
 
-        # Allow ~0.3% tolerance (consistent with Python backend)
+        # Should match to machine precision (< 1e-6)
         np.testing.assert_allclose(
             lnL_rust,
             paml_lnL,
-            rtol=0.003,
-            err_msg="Rust M0 likelihood should match PAML reference within 0.3%"
+            rtol=1e-6,
+            atol=1e-6,
+            err_msg="Rust M0 likelihood should match PAML exactly"
         )
 
     def test_rust_m1a_likelihood_matches_paml(self, lysozyme_data):
@@ -277,16 +276,17 @@ class TestRustPAMLValidation:
         aln = lysozyme_data["alignment"]
         pi = lysozyme_data["pi"]
 
+        # Use PAML's actual optimized parameters
         tree_str = (
-            "((Hsa_Human: 0.025414, Hla_gibbon: 0.039964): 0.073013, "
-            "((Cgu/Can_colobus: 0.044336, Pne_langur: 0.052883): 0.079750, "
-            "Mmu_rhesus: 0.020527): 0.044931, "
-            "(Ssc_squirrelM: 0.042113, Cja_marmoset: 0.024023): 0.130205);"
+            "((Hsa_Human: 0.025561, Hla_gibbon: 0.038887): 0.067982, "
+            "((Cgu/Can_colobus: 0.043792, Pne_langur: 0.052539): 0.076369, "
+            "Mmu_rhesus: 0.021684): 0.043448, "
+            "(Ssc_squirrelM: 0.040804, Cja_marmoset: 0.023918): 0.122664);"
         )
         tree = Tree.from_newick(tree_str)
 
-        # M0 model
-        model = M0CodonModel(kappa=4.23740, omega=0.45320, pi=pi)
+        # M0 model with PAML's actual parameters
+        model = M0CodonModel(kappa=4.54008, omega=0.80663, pi=pi)
         Q = model.get_Q_matrix()
 
         # Python backend
@@ -297,10 +297,14 @@ class TestRustPAMLValidation:
         calc_rust = RustLikelihoodCalculator(aln, tree)
         lnL_rust = calc_rust.compute_log_likelihood(Q, pi)
 
-        print(f"\nRust vs Python Comparison (M0):")
+        paml_lnL = -906.017440
+
+        print(f"\nRust vs Python Comparison (M0 with correct params):")
         print(f"  Python lnL: {lnL_python:.10f}")
         print(f"  Rust lnL:   {lnL_rust:.10f}")
-        print(f"  Difference: {abs(lnL_rust - lnL_python):.10e}")
+        print(f"  PAML lnL:   {paml_lnL:.10f}")
+        print(f"  Rust-Python diff: {abs(lnL_rust - lnL_python):.10e}")
+        print(f"  Rust-PAML diff:   {abs(lnL_rust - paml_lnL):.10e}")
 
         # Should be identical within machine precision
         np.testing.assert_allclose(
