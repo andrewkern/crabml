@@ -1,7 +1,7 @@
 [project]
-name = "pycodeml"
+name = "crabml"
 version = "0.1.0"
-description = "Python reimplementation of PAML's codeml for phylogenetic maximum likelihood analysis"
+description = "High-performance reimplementation of PAML's codeml using Python and Rust"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "GPL-3.0-or-later" }
@@ -13,7 +13,11 @@ dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
     "biopython>=1.81",
+    "crabml-rust",
 ]
+
+[tool.uv.sources]
+crabml-rust = { path = "rust", editable = true }
 
 [project.optional-dependencies]
 dev = [

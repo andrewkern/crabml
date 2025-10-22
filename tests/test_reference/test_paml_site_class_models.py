@@ -5,15 +5,15 @@ Reference tests comparing site class models (M1a, M2a, M3) against PAML outputs.
 import numpy as np
 import pytest
 
-from pycodeml.models.codon import (
+from crabml.models.codon import (
     M1aCodonModel,
     M2aCodonModel,
     M3CodonModel,
     compute_codon_frequencies_f3x4,
 )
-from pycodeml.io.sequences import Alignment
-from pycodeml.io.trees import Tree
-from pycodeml.core.likelihood import LikelihoodCalculator
+from crabml.io.sequences import Alignment
+from crabml.io.trees import Tree
+from crabml.core.likelihood import LikelihoodCalculator
 
 
 class TestPAMLSiteClassModels:

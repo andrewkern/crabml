@@ -1,6 +1,6 @@
-# py-codeml
+# crabML
 
-Python reimplementation of PAML's codeml for phylogenetic maximum likelihood analysis.
+High-performance reimplementation of PAML's codeml for phylogenetic maximum likelihood analysis, powered by Rust.
 
 ## Status
 
@@ -16,56 +16,35 @@ Production-ready with 10 PAML codon models fully validated against reference out
 
 ## Installation
 
-### Python-only (NumPy/SciPy)
-
-```bash
-uv pip install -e ".[dev]"
-```
-
-### With Rust backend (recommended)
-
-The Rust backend provides 3-10x speedup for full parameter optimization.
-
 **Requirements:**
+- Python 3.11+
 - Rust toolchain (install from https://rustup.rs)
 - OpenBLAS or similar BLAS/LAPACK implementation
 
 ```bash
-# Install Python package
-uv pip install -e ".[dev]"
-
-# Build Rust extension
-cd rust
-uv pip install maturin
-uv run maturin develop --release
-cd ..
+uv sync --all-extras
 ```
 
-**Verify Rust installation:**
-```bash
-python -c "import pycodeml_rust; print('Rust backend available')"
-```
+This single command installs all Python dependencies and builds the Rust extension.
 
 ## Usage
 
 ```python
-from pycodeml.io.sequences import read_phylip
-from pycodeml.io.trees import read_newick
-from pycodeml.optimize import M0Optimizer
+from crabml.io.sequences import read_phylip
+from crabml.io.trees import read_newick
+from crabml.optimize import M0Optimizer
 
 # Load data
 alignment = read_phylip("alignment.phy")
 tree = read_newick("tree.nwk")
 
-# Run M0 model with Rust backend (3-10x faster than PAML)
-optimizer = M0Optimizer(alignment, tree, use_rust=True)
+# Run M0 model (3-10x faster than PAML)
+optimizer = M0Optimizer(alignment, tree)
 result = optimizer.optimize()
 
 print(f"Log-likelihood: {result['log_likelihood']:.6f}")
 print(f"Parameters: kappa={result['kappa']:.4f}, omega={result['omega']:.4f}")
 ```
-
-Set `use_rust=False` to use pure Python implementation.
 
 ## Supported Models
 
@@ -85,7 +64,7 @@ All models validated against PAML reference outputs with exact numerical agreeme
 ## Development
 
 ```bash
-# Run tests (Python only)
+# Run tests
 uv run pytest
 
 # Run tests with coverage
@@ -99,8 +78,8 @@ cd rust
 cargo test
 cd ..
 
-# Benchmark Rust vs Python
-uv run pytest tests/test_rust/ -v
+# Run PAML validation tests
+uv run pytest tests/test_rust/test_paml_rust_validation.py -v
 ```
 
 ## License

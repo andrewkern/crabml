@@ -1,6 +1,6 @@
 """Evolutionary models (codon, amino acid, nucleotide)."""
 
-from pycodeml.models.codon import (
+from crabml.models.codon import (
     M0CodonModel,
     M1aCodonModel,
     M2aCodonModel,

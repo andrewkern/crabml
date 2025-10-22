@@ -16,7 +16,7 @@ except ImportError:
     RUST_AVAILABLE = False
     pytest.skip("Rust extension not built yet", allow_module_level=True)
 
-from pycodeml.core.matrix import matrix_exponential as python_matrix_exponential
+from crabml.core.matrix import matrix_exponential as python_matrix_exponential
 
 
 class TestRustMatrixExponential:

@@ -5,7 +5,7 @@ Unit tests for codon substitution models.
 import numpy as np
 import pytest
 
-from pycodeml.models.codon import (
+from crabml.models.codon import (
     M0CodonModel,
     M1aCodonModel,
     M2aCodonModel,
@@ -14,9 +14,9 @@ from pycodeml.models.codon import (
     is_transition,
     is_synonymous,
 )
-from pycodeml.io.sequences import Alignment, CODON_TO_INDEX
-from pycodeml.io.trees import Tree
-from pycodeml.core.likelihood import LikelihoodCalculator
+from crabml.io.sequences import Alignment, CODON_TO_INDEX
+from crabml.io.trees import Tree
+from crabml.core.likelihood import LikelihoodCalculator
 
 
 class TestCodonModel:
@@ -76,7 +76,7 @@ class TestCodonModel:
 
     def test_m0_model_only_single_nucleotide_changes(self):
         """Test that only single nucleotide changes have non-zero rates."""
-        from pycodeml.io.sequences import CODONS
+        from crabml.io.sequences import CODONS
 
         model = M0CodonModel(kappa=2.0, omega=0.4)
         Q = model.get_Q_matrix()
@@ -95,7 +95,7 @@ class TestCodonModel:
 
     def test_m0_model_transition_vs_transversion(self):
         """Test that transitions have higher rate than transversions (for kappa>1)."""
-        from pycodeml.io.sequences import CODONS
+        from crabml.io.sequences import CODONS
 
         model = M0CodonModel(kappa=3.0, omega=1.0)  # kappa=3, omega=1 for simplicity
         Q = model.get_Q_matrix()
@@ -180,7 +180,7 @@ class TestCodonModel:
         np.testing.assert_allclose(Q.sum(axis=1), 0, atol=1e-10)
 
         # Verify detailed balance with pi
-        from pycodeml.core.matrix import check_detailed_balance
+        from crabml.core.matrix import check_detailed_balance
         assert check_detailed_balance(Q, pi)
 
 
@@ -307,7 +307,7 @@ class TestSiteClassModels:
         tree = Tree.from_newick(tree_str.replace("seq1", aln.names[0]).replace("seq2", aln.names[1]))
 
         # Create M1a model
-        from pycodeml.models.codon import compute_codon_frequencies_f3x4
+        from crabml.models.codon import compute_codon_frequencies_f3x4
         pi = compute_codon_frequencies_f3x4(aln)
 
         model = M1aCodonModel(kappa=2.5, omega0=0.5, p0=0.7, pi=pi)

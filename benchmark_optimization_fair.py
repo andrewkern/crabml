@@ -11,9 +11,9 @@ import subprocess
 import numpy as np
 from pathlib import Path
 
-from pycodeml.optimize.optimizer import M7Optimizer, M8Optimizer
-from pycodeml.io.sequences import Alignment
-from pycodeml.io.trees import Tree
+from crabml.optimize.optimizer import M7Optimizer, M8Optimizer
+from crabml.io.sequences import Alignment
+from crabml.io.trees import Tree
 
 
 def benchmark_paml_optimization(ctl_file: str, n_runs: int = 3):

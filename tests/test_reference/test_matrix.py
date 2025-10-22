@@ -7,7 +7,7 @@ and known properties of transition probability matrices.
 
 import numpy as np
 import pytest
-from pycodeml.core.matrix import (
+from crabml.core.matrix import (
     check_detailed_balance,
     create_reversible_Q,
     eigen_decompose_rev,

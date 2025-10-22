@@ -1,4 +1,4 @@
-/// PyCodeML Rust Backend
+/// crabML Rust Backend
 ///
 /// High-performance likelihood calculations for phylogenetic codon models.
 /// Uses BLAS/LAPACK for matrix operations and Rayon for parallelization.
@@ -186,11 +186,11 @@ fn compute_site_class_log_likelihood(
     Ok(result)
 }
 
-/// PyCodeML Rust Backend Module
+/// crabML Rust Backend Module
 ///
 /// High-performance phylogenetic likelihood calculations.
 #[pymodule]
-fn pycodeml_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn crabml_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(matrix_exponential, m)?)?;
     m.add_function(wrap_pyfunction!(compute_log_likelihood, m)?)?;
     m.add_function(wrap_pyfunction!(compute_site_class_log_likelihood, m)?)?;

@@ -9,10 +9,10 @@ import numpy as np
 import pytest
 from pathlib import Path
 
-from pycodeml.core.likelihood import LikelihoodCalculator
-from pycodeml.core.matrix import create_reversible_Q
-from pycodeml.io.sequences import Alignment
-from pycodeml.io.trees import Tree
+from crabml.core.likelihood import LikelihoodCalculator
+from crabml.core.matrix import create_reversible_Q
+from crabml.io.sequences import Alignment
+from crabml.io.trees import Tree
 
 
 class TestLysozyme:

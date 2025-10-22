@@ -10,14 +10,14 @@ import pytest
 
 # Check if Rust backend is available
 try:
-    from pycodeml.core.likelihood_rust import RustLikelihoodCalculator, RUST_AVAILABLE
+    from crabml.core.likelihood_rust import RustLikelihoodCalculator, RUST_AVAILABLE
 except ImportError:
     RUST_AVAILABLE = False
 
 if not RUST_AVAILABLE:
     pytest.skip("Rust backend not available", allow_module_level=True)
 
-from pycodeml.models.codon import (
+from crabml.models.codon import (
     M0CodonModel,
     M1aCodonModel,
     M2aCodonModel,
@@ -30,8 +30,8 @@ from pycodeml.models.codon import (
     M9CodonModel,
     compute_codon_frequencies_f3x4,
 )
-from pycodeml.io.sequences import Alignment
-from pycodeml.io.trees import Tree
+from crabml.io.sequences import Alignment
+from crabml.io.trees import Tree
 
 
 class TestRustPAMLValidation:
@@ -278,7 +278,7 @@ class TestRustPAMLValidation:
         This is critical: Rust should be a drop-in replacement with no
         numerical differences beyond machine precision.
         """
-        from pycodeml.core.likelihood import LikelihoodCalculator as PythonCalc
+        from crabml.core.likelihood import LikelihoodCalculator as PythonCalc
 
         aln = lysozyme_data["alignment"]
         pi = lysozyme_data["pi"]
@@ -328,7 +328,7 @@ class TestRustPAMLValidation:
 
         This tests the parallelized Rayon implementation for M1a/M2a/M3.
         """
-        from pycodeml.core.likelihood import LikelihoodCalculator as PythonCalc
+        from crabml.core.likelihood import LikelihoodCalculator as PythonCalc
 
         aln = lysozyme_data["alignment"]
         pi = lysozyme_data["pi"]

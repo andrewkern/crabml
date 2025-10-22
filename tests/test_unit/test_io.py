@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from pathlib import Path
 
-from pycodeml.io.sequences import Alignment, CODON_TO_INDEX
-from pycodeml.io.trees import Tree, TreeNode
+from crabml.io.sequences import Alignment, CODON_TO_INDEX
+from crabml.io.trees import Tree, TreeNode
 
 
 class TestSequenceParsing:
@@ -55,7 +55,7 @@ class TestSequenceParsing:
         sequences = ["ATGATGCCC", "TTTAAAGGG"]  # 3 codons each
 
         # Manually create alignment
-        from pycodeml.io.sequences import INDEX_TO_CODON
+        from crabml.io.sequences import INDEX_TO_CODON
 
         encoded = Alignment._encode_codons(sequences)
 

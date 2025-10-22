@@ -5,10 +5,10 @@ Unit tests for likelihood calculation.
 import numpy as np
 import pytest
 
-from pycodeml.core.likelihood import LikelihoodCalculator
-from pycodeml.core.matrix import create_reversible_Q
-from pycodeml.io.sequences import Alignment, CODON_TO_INDEX
-from pycodeml.io.trees import Tree
+from crabml.core.likelihood import LikelihoodCalculator
+from crabml.core.matrix import create_reversible_Q
+from crabml.io.sequences import Alignment, CODON_TO_INDEX
+from crabml.io.trees import Tree
 
 
 class TestLikelihoodCalculator:

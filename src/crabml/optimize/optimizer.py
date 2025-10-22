@@ -6,12 +6,7 @@ import numpy as np
 from scipy.optimize import minimize
 from typing import Tuple
 
-from ..core.likelihood import LikelihoodCalculator
-try:
-    from ..core.likelihood_rust import RustLikelihoodCalculator, RUST_AVAILABLE
-except ImportError:
-    RUST_AVAILABLE = False
-
+from ..core.likelihood_rust import RustLikelihoodCalculator
 from ..models.codon import (
     M0CodonModel,
     M1aCodonModel,
@@ -42,8 +37,7 @@ class M0Optimizer:
         alignment: Alignment,
         tree: Tree,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True,
-        use_rust: bool = True
+        optimize_branch_lengths: bool = True
     ):
         """
         Initialize optimizer.
@@ -58,14 +52,11 @@ class M0Optimizer:
             Use F3X4 codon frequencies (True) or uniform (False)
         optimize_branch_lengths : bool
             Optimize individual branch lengths (True) or use global scaling (False)
-        use_rust : bool
-            Use Rust backend for 15-30x speedup (True) or Python (False)
         """
         self.alignment = alignment
         self.tree = tree
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
-        self.use_rust = use_rust and RUST_AVAILABLE
 
         # Compute codon frequencies
         if use_f3x4:
@@ -73,14 +64,8 @@ class M0Optimizer:
         else:
             self.pi = np.ones(61) / 61
 
-        # Create likelihood calculator (Rust or Python)
-        if self.use_rust:
-            self.calc = RustLikelihoodCalculator(alignment, tree)
-            print("Using Rust backend for likelihood calculations (15-30x faster)")
-        else:
-            self.calc = LikelihoodCalculator(alignment, tree)
-            if use_rust and not RUST_AVAILABLE:
-                print("Warning: Rust backend requested but not available, using Python")
+        # Create Rust likelihood calculator
+        self.calc = RustLikelihoodCalculator(alignment, tree)
 
         # Get list of nodes with branches (exclude root)
         self.branch_nodes = [node for node in tree.postorder() if node.parent is not None]
@@ -258,29 +243,21 @@ class M1aOptimizer:
         alignment: Alignment,
         tree: Tree,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True,
-        use_rust: bool = True
+        optimize_branch_lengths: bool = True
     ):
         """Initialize M1a optimizer."""
         self.alignment = alignment
         self.tree = tree
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
-        self.use_rust = use_rust and RUST_AVAILABLE
 
         if use_f3x4:
             self.pi = compute_codon_frequencies_f3x4(alignment)
         else:
             self.pi = np.ones(61) / 61
 
-        # Create likelihood calculator (Rust or Python)
-        if self.use_rust:
-            self.calc = RustLikelihoodCalculator(alignment, tree)
-            print("Using Rust backend for M1a likelihood calculations")
-        else:
-            self.calc = LikelihoodCalculator(alignment, tree)
-            if use_rust and not RUST_AVAILABLE:
-                print("Warning: Rust backend requested but not available, using Python")
+        # Create Rust likelihood calculator
+        self.calc = RustLikelihoodCalculator(alignment, tree)
         self.branch_nodes = [node for node in tree.postorder() if node.parent is not None]
         self.n_branches = len(self.branch_nodes)
         self.history = []
@@ -404,29 +381,21 @@ class M2aOptimizer:
         alignment: Alignment,
         tree: Tree,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True,
-        use_rust: bool = True
+        optimize_branch_lengths: bool = True
     ):
         """Initialize M2a optimizer."""
         self.alignment = alignment
         self.tree = tree
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
-        self.use_rust = use_rust and RUST_AVAILABLE
 
         if use_f3x4:
             self.pi = compute_codon_frequencies_f3x4(alignment)
         else:
             self.pi = np.ones(61) / 61
 
-        # Create likelihood calculator (Rust or Python)
-        if self.use_rust:
-            self.calc = RustLikelihoodCalculator(alignment, tree)
-            print("Using Rust backend for M2a likelihood calculations")
-        else:
-            self.calc = LikelihoodCalculator(alignment, tree)
-            if use_rust and not RUST_AVAILABLE:
-                print("Warning: Rust backend requested but not available, using Python")
+        # Create Rust likelihood calculator
+        self.calc = RustLikelihoodCalculator(alignment, tree)
         self.branch_nodes = [node for node in tree.postorder() if node.parent is not None]
         self.n_branches = len(self.branch_nodes)
         self.history = []
@@ -570,8 +539,7 @@ class M3Optimizer:
         tree: Tree,
         n_classes: int = 3,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True,
-        use_rust: bool = True
+        optimize_branch_lengths: bool = True
     ):
         """
         Initialize M3 optimizer.
@@ -588,29 +556,20 @@ class M3Optimizer:
             Use F3X4 codon frequencies
         optimize_branch_lengths : bool
             Optimize individual branch lengths
-        use_rust : bool
-            Use Rust backend for 20-30x speedup (parallelized)
         """
         self.alignment = alignment
         self.tree = tree
         self.n_classes = n_classes
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
-        self.use_rust = use_rust and RUST_AVAILABLE
 
         if use_f3x4:
             self.pi = compute_codon_frequencies_f3x4(alignment)
         else:
             self.pi = np.ones(61) / 61
 
-        # Create likelihood calculator (Rust or Python)
-        if self.use_rust:
-            self.calc = RustLikelihoodCalculator(alignment, tree)
-            print(f"Using Rust backend for M3 likelihood calculations ({n_classes} classes, parallelized)")
-        else:
-            self.calc = LikelihoodCalculator(alignment, tree)
-            if use_rust and not RUST_AVAILABLE:
-                print("Warning: Rust backend requested but not available, using Python")
+        # Create Rust likelihood calculator
+        self.calc = RustLikelihoodCalculator(alignment, tree)
         self.branch_nodes = [node for node in tree.postorder() if node.parent is not None]
         self.n_branches = len(self.branch_nodes)
         self.history = []
@@ -802,8 +761,7 @@ class M7Optimizer:
         tree: Tree,
         ncatG: int = 10,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True,
-        use_rust: bool = True
+        optimize_branch_lengths: bool = True
     ):
         """Initialize M7 optimizer."""
         self.alignment = alignment
@@ -811,21 +769,14 @@ class M7Optimizer:
         self.ncatG = ncatG
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
-        self.use_rust = use_rust and RUST_AVAILABLE
 
         if use_f3x4:
             self.pi = compute_codon_frequencies_f3x4(alignment)
         else:
             self.pi = np.ones(61) / 61
 
-        # Create likelihood calculator
-        if self.use_rust:
-            self.calc = RustLikelihoodCalculator(alignment, tree)
-            print(f"Using Rust backend for M7 likelihood calculations ({ncatG} categories, parallelized)")
-        else:
-            self.calc = LikelihoodCalculator(alignment, tree)
-            if use_rust and not RUST_AVAILABLE:
-                print("Warning: Rust backend requested but not available, using Python")
+        # Create Rust likelihood calculator
+        self.calc = RustLikelihoodCalculator(alignment, tree)
 
         self.branch_nodes = [node for node in tree.postorder() if node.parent is not None]
         self.n_branches = len(self.branch_nodes)
@@ -956,8 +907,7 @@ class M8Optimizer:
         tree: Tree,
         ncatG: int = 10,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True,
-        use_rust: bool = True
+        optimize_branch_lengths: bool = True
     ):
         """Initialize M8 optimizer."""
         self.alignment = alignment
@@ -965,21 +915,14 @@ class M8Optimizer:
         self.ncatG = ncatG
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
-        self.use_rust = use_rust and RUST_AVAILABLE
 
         if use_f3x4:
             self.pi = compute_codon_frequencies_f3x4(alignment)
         else:
             self.pi = np.ones(61) / 61
 
-        # Create likelihood calculator
-        if self.use_rust:
-            self.calc = RustLikelihoodCalculator(alignment, tree)
-            print(f"Using Rust backend for M8 likelihood calculations ({ncatG}+1 categories, parallelized)")
-        else:
-            self.calc = LikelihoodCalculator(alignment, tree)
-            if use_rust and not RUST_AVAILABLE:
-                print("Warning: Rust backend requested but not available, using Python")
+        # Create Rust likelihood calculator
+        self.calc = RustLikelihoodCalculator(alignment, tree)
 
         self.branch_nodes = [node for node in tree.postorder() if node.parent is not None]
         self.n_branches = len(self.branch_nodes)
@@ -1126,15 +1069,13 @@ class M5Optimizer:
         tree: Tree,
         ncatG: int = 10,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True,
-        use_rust: bool = True
+        optimize_branch_lengths: bool = True
     ):
         """Initialize M5 optimizer."""
         self.alignment = alignment
         self.tree = tree
         self.ncatG = ncatG
         self.optimize_branch_lengths = optimize_branch_lengths
-        self.use_rust = use_rust
         
         # Compute codon frequencies
         from ..models.codon import compute_codon_frequencies_f3x4
@@ -1153,11 +1094,8 @@ class M5Optimizer:
         else:
             self.n_branches = 0
         
-        # Use Rust backend for fast likelihood calculations
-        if self.use_rust:
-            print(f"Using Rust backend for M5 likelihood calculations ({ncatG} categories, parallelized)")
-            from ..rust.likelihood_calculator import RustLikelihoodCalculator
-            self.calc = RustLikelihoodCalculator(alignment, tree)
+        # Create Rust likelihood calculator
+        self.calc = RustLikelihoodCalculator(alignment, tree)
     
     def compute_log_likelihood(self, params: np.ndarray) -> float:
         """Compute negative log-likelihood for optimization."""
@@ -1277,15 +1215,13 @@ class M9Optimizer:
         tree: Tree,
         ncatG: int = 10,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True,
-        use_rust: bool = True
+        optimize_branch_lengths: bool = True
     ):
         """Initialize M9 optimizer."""
         self.alignment = alignment
         self.tree = tree
         self.ncatG = ncatG
         self.optimize_branch_lengths = optimize_branch_lengths
-        self.use_rust = use_rust
         
         # Compute codon frequencies
         from ..models.codon import compute_codon_frequencies_f3x4
@@ -1304,11 +1240,8 @@ class M9Optimizer:
         else:
             self.n_branches = 0
         
-        # Use Rust backend for fast likelihood calculations
-        if self.use_rust:
-            print(f"Using Rust backend for M9 likelihood calculations ({ncatG}+{ncatG} categories, parallelized)")
-            from ..rust.likelihood_calculator import RustLikelihoodCalculator
-            self.calc = RustLikelihoodCalculator(alignment, tree)
+        # Create Rust likelihood calculator
+        self.calc = RustLikelihoodCalculator(alignment, tree)
     
     def compute_log_likelihood(self, params: np.ndarray) -> float:
         """Compute negative log-likelihood for optimization."""
@@ -1456,14 +1389,12 @@ class M4Optimizer:
         alignment: Alignment,
         tree: Tree,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True,
-        use_rust: bool = True
+        optimize_branch_lengths: bool = True
     ):
         """Initialize M4 optimizer."""
         self.alignment = alignment
         self.tree = tree
         self.optimize_branch_lengths = optimize_branch_lengths
-        self.use_rust = use_rust
         
         # Compute codon frequencies
         from ..models.codon import compute_codon_frequencies_f3x4
@@ -1482,11 +1413,8 @@ class M4Optimizer:
         else:
             self.n_branches = 0
         
-        # Use Rust backend for fast likelihood calculations
-        if self.use_rust:
-            print(f"Using Rust backend for M4 likelihood calculations (5 fixed omega classes, parallelized)")
-            from ..rust.likelihood_calculator import RustLikelihoodCalculator
-            self.calc = RustLikelihoodCalculator(alignment, tree)
+        # Create Rust likelihood calculator
+        self.calc = RustLikelihoodCalculator(alignment, tree)
     
     def compute_log_likelihood(self, params: np.ndarray) -> float:
         """Compute negative log-likelihood for optimization."""
@@ -1625,15 +1553,13 @@ class M6Optimizer:
         tree: Tree,
         ncatG: int = 10,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True,
-        use_rust: bool = True
+        optimize_branch_lengths: bool = True
     ):
         """Initialize M6 optimizer."""
         self.alignment = alignment
         self.tree = tree
         self.ncatG = ncatG
         self.optimize_branch_lengths = optimize_branch_lengths
-        self.use_rust = use_rust
         
         # Compute codon frequencies
         from ..models.codon import compute_codon_frequencies_f3x4
@@ -1652,11 +1578,8 @@ class M6Optimizer:
         else:
             self.n_branches = 0
         
-        # Use Rust backend for fast likelihood calculations
-        if self.use_rust:
-            print(f"Using Rust backend for M6 likelihood calculations ({ncatG} categories, parallelized)")
-            from ..rust.likelihood_calculator import RustLikelihoodCalculator
-            self.calc = RustLikelihoodCalculator(alignment, tree)
+        # Create Rust likelihood calculator
+        self.calc = RustLikelihoodCalculator(alignment, tree)
     
     def compute_log_likelihood(self, params: np.ndarray) -> float:
         """Compute negative log-likelihood for optimization."""

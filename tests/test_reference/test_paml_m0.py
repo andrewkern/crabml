@@ -5,9 +5,9 @@ Reference tests comparing against PAML M0 model output.
 import numpy as np
 import pytest
 
-from pycodeml.optimize.optimizer import M0Optimizer
-from pycodeml.io.sequences import Alignment
-from pycodeml.io.trees import Tree
+from crabml.optimize.optimizer import M0Optimizer
+from crabml.io.sequences import Alignment
+from crabml.io.trees import Tree
 
 
 class TestPAMLM0:

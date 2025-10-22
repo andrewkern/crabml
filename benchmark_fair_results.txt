@@ -1,0 +1,155 @@
+======================================================================
+FAIR Benchmark: PAML vs PyCodeML (Rust) - Full Optimization
+======================================================================
+
+Both systems doing complete parameter optimization (finding MLEs)
+NOT just likelihood evaluation!
+
+
+======================================================================
+M7 Model (Beta Distribution) - FULL OPTIMIZATION
+======================================================================
+
+[1/4] PAML M7 Full Optimization (C code):
+    Run 1/3...
+      Time: 56.81s
+    Run 2/3...
+      Time: 42.59s
+    Run 3/3...
+      Time: 44.53s
+
+PAML M7 (Full Optimization):
+  Mean time:   47.98s ± 6.30s
+  Median time: 44.53s
+  Min time:    42.59s
+  Max time:    56.81s
+
+[2/4] PyCodeML M7 Full Optimization (Rust backend):
+    Run 1/3...
+Using Rust backend for M7 likelihood calculations (10 categories, parallelized)
+Starting M7 optimization with method=L-BFGS-B, maxiter=1000
+Initial: kappa=2.0000, p=0.5000, q=0.5000
+Beta distribution discretized into 10 categories
+
+Optimization complete!
+Final: kappa=4.3151, p=0.0095, q=0.0064
+Log-likelihood: -902.510020
+Iterations: 300
+      Time: 13.61s, lnL: -902.510020
+    Run 2/3...
+Using Rust backend for M7 likelihood calculations (10 categories, parallelized)
+Starting M7 optimization with method=L-BFGS-B, maxiter=1000
+Initial: kappa=2.0000, p=0.5000, q=0.5000
+Beta distribution discretized into 10 categories
+
+Optimization complete!
+Final: kappa=4.3151, p=0.0095, q=0.0064
+Log-likelihood: -902.510020
+Iterations: 300
+      Time: 13.57s, lnL: -902.510020
+    Run 3/3...
+Using Rust backend for M7 likelihood calculations (10 categories, parallelized)
+Starting M7 optimization with method=L-BFGS-B, maxiter=1000
+Initial: kappa=2.0000, p=0.5000, q=0.5000
+Beta distribution discretized into 10 categories
+
+Optimization complete!
+Final: kappa=4.3151, p=0.0095, q=0.0064
+Log-likelihood: -902.510020
+Iterations: 300
+      Time: 13.45s, lnL: -902.510020
+
+PyCodeML M7 (Rust, Full Optimization):
+  Mean time:   13.54s ± 0.07s
+  Median time: 13.57s
+  Min time:    13.45s
+  Max time:    13.61s
+
+  ⚡ SPEEDUP: 3.3x faster than PAML
+
+  Final M7 lnL: -902.510020
+  PAML M7 lnL:  -902.510018 (reference)
+
+======================================================================
+M8 Model (Beta & omega>1) - FULL OPTIMIZATION
+======================================================================
+
+[3/4] PAML M8 Full Optimization (C code):
+    Run 1/3...
+      Time: 96.86s
+    Run 2/3...
+      Time: 97.53s
+    Run 3/3...
+      Time: 95.86s
+
+PAML M8 (Full Optimization):
+  Mean time:   96.75s ± 0.69s
+  Median time: 96.86s
+  Min time:    95.86s
+  Max time:    97.53s
+
+[4/4] PyCodeML M8 Full Optimization (Rust backend):
+    Run 1/3...
+Using Rust backend for M8 likelihood calculations (10+1 categories, parallelized)
+Starting M8 optimization with method=L-BFGS-B, maxiter=1000
+Initial: kappa=2.0000, p0=0.9000, p=0.5000, q=0.5000, omega_s=2.0000
+Beta distribution discretized into 10 categories + 1 positive selection class
+
+Optimization complete!
+Final: kappa=5.0324, p0=0.8683, p=10.1244, q=14.4449, omega_s=4.3676
+Log-likelihood: -899.999241
+Iterations: 663
+      Time: 33.32s, lnL: -899.999241
+    Run 2/3...
+Using Rust backend for M8 likelihood calculations (10+1 categories, parallelized)
+Starting M8 optimization with method=L-BFGS-B, maxiter=1000
+Initial: kappa=2.0000, p0=0.9000, p=0.5000, q=0.5000, omega_s=2.0000
+Beta distribution discretized into 10 categories + 1 positive selection class
+
+Optimization complete!
+Final: kappa=5.0324, p0=0.8683, p=10.1244, q=14.4449, omega_s=4.3676
+Log-likelihood: -899.999241
+Iterations: 663
+      Time: 32.63s, lnL: -899.999241
+    Run 3/3...
+Using Rust backend for M8 likelihood calculations (10+1 categories, parallelized)
+Starting M8 optimization with method=L-BFGS-B, maxiter=1000
+Initial: kappa=2.0000, p0=0.9000, p=0.5000, q=0.5000, omega_s=2.0000
+Beta distribution discretized into 10 categories + 1 positive selection class
+
+Optimization complete!
+Final: kappa=5.0324, p0=0.8683, p=10.1244, q=14.4449, omega_s=4.3676
+Log-likelihood: -899.999241
+Iterations: 663
+      Time: 32.87s, lnL: -899.999241
+
+PyCodeML M8 (Rust, Full Optimization):
+  Mean time:   32.94s ± 0.28s
+  Median time: 32.87s
+  Min time:    32.63s
+  Max time:    33.32s
+
+  ⚡ SPEEDUP: 2.9x faster than PAML
+
+  Final M8 lnL: -899.999241
+  PAML M8 lnL:  -899.999237 (reference)
+
+======================================================================
+SUMMARY - Fair Comparison (Full Optimization)
+======================================================================
+
+M7 Model (Full Optimization):
+  PAML:          44.53s
+  PyCodeML:      13.57s
+  Speedup:       3.3x
+
+M8 Model (Full Optimization):
+  PAML:          96.86s
+  PyCodeML:      32.87s
+  Speedup:       2.9x
+
+Average Speedup: 3.1x
+
+Note: This is a FAIR comparison - both systems doing full parameter
+optimization, not just likelihood evaluation!
+======================================================================

@@ -1,10 +1,10 @@
 [package]
-name = "pycodeml_rust"
+name = "crabml_rust"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "pycodeml_rust"
+name = "crabml_rust"
 crate-type = ["cdylib"]
 
 [dependencies]

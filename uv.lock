@@ -143,6 +143,42 @@ toml = [
 ]
 
 [[package]]
+name = "crabml"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "biopython" },
+    { name = "crabml-rust" },
+    { name = "numpy" },
+    { name = "scipy" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "ipython" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "biopython", specifier = ">=1.81" },
+    { name = "crabml-rust", editable = "rust" },
+    { name = "ipython", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "numpy", specifier = ">=1.24" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1" },
+    { name = "scipy", specifier = ">=1.10" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "crabml-rust"
+source = { editable = "rust" }
+
+[[package]]
 name = "decorator"
 version = "5.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -376,36 +412,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/cd/05/0a34433a064256a57
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8e/37/efad0257dc6e593a18957422533ff0f87ede7c9c6ea010a2177d738fb82f/pure_eval-0.2.3-py3-none-any.whl", hash = "sha256:1db8e35b67b3d218d818ae653e27f06c3aa420901fa7b081ca98cbedc874e0d0", size = 11842, upload-time = "2024-07-21T12:58:20.04Z" },
 ]
-
-[[package]]
-name = "pycodeml"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "biopython" },
-    { name = "numpy" },
-    { name = "scipy" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "ipython" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "biopython", specifier = ">=1.81" },
-    { name = "ipython", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "numpy", specifier = ">=1.24" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1" },
-    { name = "scipy", specifier = ">=1.10" },
-]
-provides-extras = ["dev"]
 
 [[package]]
 name = "pygments"

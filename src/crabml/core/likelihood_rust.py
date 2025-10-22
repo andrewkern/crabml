@@ -9,7 +9,7 @@ import numpy as np
 from typing import Optional
 
 try:
-    import pycodeml_rust
+    import crabml_rust
     RUST_AVAILABLE = True
 except ImportError:
     RUST_AVAILABLE = False
@@ -211,7 +211,7 @@ class RustLikelihoodCalculator:
         branch_lengths = self._get_current_branch_lengths(scale_branch_lengths)
 
         # Call Rust function
-        log_likelihood = pycodeml_rust.compute_log_likelihood(
+        log_likelihood = crabml_rust.compute_log_likelihood(
             q=Q,
             pi=pi,
             tree_structure=self.tree_structure,
@@ -274,7 +274,7 @@ class RustLikelihoodCalculator:
         branch_lengths = self._get_current_branch_lengths(scale_branch_lengths)
 
         # Call Rust function (parallelized across site classes)
-        log_likelihood = pycodeml_rust.compute_site_class_log_likelihood(
+        log_likelihood = crabml_rust.compute_site_class_log_likelihood(
             q_matrices=Q_matrices,
             proportions=proportions,
             pi=pi,

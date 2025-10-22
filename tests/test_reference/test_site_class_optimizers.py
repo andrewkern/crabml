@@ -5,9 +5,9 @@ Reference tests for site class model optimizers.
 import numpy as np
 import pytest
 
-from pycodeml.optimize.optimizer import M1aOptimizer, M2aOptimizer, M3Optimizer
-from pycodeml.io.sequences import Alignment
-from pycodeml.io.trees import Tree
+from crabml.optimize.optimizer import M1aOptimizer, M2aOptimizer, M3Optimizer
+from crabml.io.sequences import Alignment
+from crabml.io.trees import Tree
 
 
 class TestSiteClassOptimizers:
@@ -108,7 +108,7 @@ class TestSiteClassOptimizers:
     @pytest.mark.slow
     def test_m1a_vs_m0_likelihood(self, lysozyme_small_files):
         """Test that M1a should fit at least as well as M0."""
-        from pycodeml.optimize.optimizer import M0Optimizer
+        from crabml.optimize.optimizer import M0Optimizer
 
         # Load data
         aln = Alignment.from_phylip(
@@ -222,7 +222,7 @@ class TestSiteClassOptimizers:
     @pytest.mark.slow
     def test_m3_vs_m0_likelihood(self, lysozyme_small_files):
         """Test that M3 should fit at least as well as M0."""
-        from pycodeml.optimize.optimizer import M0Optimizer
+        from crabml.optimize.optimizer import M0Optimizer
 
         # Load data
         aln = Alignment.from_phylip(
