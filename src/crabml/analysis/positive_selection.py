@@ -15,7 +15,9 @@ from .results import LRTResult
 def m1a_vs_m2a(
     alignment: Union[str, Alignment],
     tree: Union[str, Tree],
-    verbose: bool = True
+    verbose: bool = True,
+    compute_beb: bool = False,
+    beb_threshold: float = 0.95
 ) -> LRTResult:
     """
     Test for positive selection using M1a (null) vs M2a (alternative).
@@ -32,11 +34,17 @@ def m1a_vs_m2a(
         Path to Newick file or Tree object
     verbose : bool, default=True
         Print optimization progress
+    compute_beb : bool, default=False
+        Whether to compute Bayes Empirical Bayes analysis if test is significant
+    beb_threshold : float, default=0.95
+        Posterior probability threshold for reporting significant sites
 
     Returns
     -------
     LRTResult
-        Test results including LRT statistic, p-value, and model parameters
+        Test results including LRT statistic, p-value, and model parameters.
+        If compute_beb=True and test is significant, result.beb will contain
+        BEBResult object.
 
     Examples
     --------
@@ -45,6 +53,12 @@ def m1a_vs_m2a(
     >>> print(result.summary())
     >>> if result.significant(0.05):
     ...     print(f"Positive selection detected! ω = {result.omega_positive:.2f}")
+
+    >>> # With BEB analysis
+    >>> result = m1a_vs_m2a('alignment.fasta', 'tree.nwk', compute_beb=True)
+    >>> if result.beb is not None:
+    ...     sig_sites = result.beb.significant_sites(threshold=0.95)
+    ...     print(f"Sites under positive selection: {sig_sites}")
 
     Notes
     -----
@@ -56,6 +70,10 @@ def m1a_vs_m2a(
     Yang, Z., Nielsen, R., Goldman, N., & Pedersen, A. M. K. (2000).
     Codon-substitution models for heterogeneous selection pressure at
     amino acid sites. Genetics, 155(1), 431-449.
+
+    Yang, Z., Wong, W.S.W., & Nielsen, R. (2005). Bayes empirical Bayes
+    inference of amino acid sites under positive selection. Molecular Biology
+    and Evolution, 22(4), 1107-1118.
     """
     # Load data
     if isinstance(alignment, str):
@@ -126,6 +144,51 @@ def m1a_vs_m2a(
         null_optimization_success=m1a_success,
         alt_optimization_success=m2a_success,
     )
+
+    # Compute BEB if requested and test is significant
+    if compute_beb and result.significant(0.05) and m2a_success:
+        if verbose:
+            print("\n" + "=" * 80)
+            print("Computing Bayes Empirical Bayes (BEB) analysis...")
+            print("=" * 80)
+
+        try:
+            from .beb import BEBCalculator
+            from ..models.codon import M2aCodonModel
+
+            # Create BEB calculator for M2a
+            m2a_mle_params = {
+                'kappa': kappa_m2a,
+                'omega0': omega0_m2a,
+                'omega2': omega2_m2a,
+                'p0': p0_m2a,
+                'p1': p1_m2a,
+            }
+
+            beb_calc = BEBCalculator(
+                mle_params=m2a_mle_params,
+                alignment=align,
+                tree=tree_obj,
+                model_class=M2aCodonModel,
+                param_names=['kappa', 'omega0', 'omega2', 'p0', 'p1'],
+                fix_branch_lengths=True,
+                n_grid_points=5
+            )
+
+            # Run BEB
+            beb_result = beb_calc.calculate_beb()
+            result.beb = beb_result
+
+            # Print summary
+            if verbose:
+                print("\n")
+                print(beb_result.summary(threshold_95=beb_threshold))
+
+        except Exception as e:
+            warnings.warn(f"BEB calculation failed: {e}", UserWarning)
+            result.beb = None
+    else:
+        result.beb = None
 
     if verbose:
         print("\n" + "=" * 80)

@@ -291,6 +291,52 @@ impl LikelihoodCalculator {
         log_likelihood
     }
 
+    /// Compute site-specific log-likelihoods for each class (for BEB analysis)
+    ///
+    /// Returns: Array2D of shape [n_sites, n_classes]
+    /// Each entry [i, k] = log P(data at site i | class k, params)
+    ///
+    /// This is used by Bayes Empirical Bayes to compute posterior probabilities
+    /// for each site belonging to each class.
+    ///
+    /// PARALLELIZED: Each site class computed in parallel with Rayon
+    pub fn compute_site_log_likelihoods_by_class(
+        &mut self,
+        q_matrices: &[CachedQMatrix],
+        pi: ArrayView1<f64>,
+        sequences: ArrayView2<i32>,
+    ) -> Array2<f64> {
+        let n_classes = q_matrices.len();
+
+        // Compute site likelihoods for each class IN PARALLEL
+        // Returns: Vec of Array1 [n_classes x n_sites]
+        let class_site_likelihoods: Vec<Array1<f64>> = q_matrices.par_iter()
+            .map(|q_matrix| {
+                // Each thread gets its own calculator (no shared state)
+                let mut calc = LikelihoodCalculator::new(
+                    self.tree.clone(),
+                    self.n_sites,
+                    self.n_states,
+                );
+                calc.compute_site_likelihoods(q_matrix, pi, sequences)
+            })
+            .collect();
+
+        // Build result array: [n_sites, n_classes]
+        let mut result = Array2::zeros((self.n_sites, n_classes));
+
+        for site in 0..self.n_sites {
+            for class_k in 0..n_classes {
+                let lik = class_site_likelihoods[class_k][site];
+                // Clamp to prevent log(0) = -inf
+                let clamped_lik = lik.max(1e-300);
+                result[[site, class_k]] = clamped_lik.ln();
+            }
+        }
+
+        result
+    }
+
     /// Compute log(∑_k p_k * L_k) from likelihoods (not log-likelihoods)
     ///
     /// Uses numerically stable log-sum-exp algorithm matching PAML:

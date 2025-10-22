@@ -286,3 +286,79 @@ class RustLikelihoodCalculator:
         )
 
         return log_likelihood
+
+    def compute_site_log_likelihoods(
+        self,
+        Q_matrices: list[np.ndarray],
+        pi: np.ndarray,
+        proportions: list[float],
+        scale_branch_lengths: float = 1.0,
+    ) -> np.ndarray:
+        """
+        Compute site-specific log-likelihoods for each class (for BEB analysis).
+
+        Returns a 2D array where each entry [i, k] is the log-likelihood of
+        site i given class k. This is used by Bayes Empirical Bayes to compute
+        posterior probabilities for each site belonging to each class.
+
+        PARALLELIZED: Site classes computed in parallel with Rayon.
+
+        Parameters
+        ----------
+        Q_matrices : list[np.ndarray]
+            List of rate matrices, one per site class
+        pi : np.ndarray
+            Equilibrium frequencies (n_states,)
+        proportions : list[float]
+            Proportion of sites in each class (used for weighting)
+        scale_branch_lengths : float, optional
+            Global scaling factor for branch lengths (default 1.0)
+
+        Returns
+        -------
+        np.ndarray
+            Site-specific log-likelihoods, shape (n_sites, n_classes)
+            Each entry [i, k] = log P(data at site i | class k, params)
+
+        Examples
+        --------
+        >>> # Get site-specific likelihoods for M2a model
+        >>> Q_matrices = model.get_Q_matrices()
+        >>> proportions, _ = model.get_site_classes()
+        >>> site_log_liks = calc.compute_site_log_likelihoods(
+        ...     Q_matrices, pi, proportions
+        ... )
+        >>> print(site_log_liks.shape)  # (n_sites, n_classes)
+        """
+        n_classes = len(Q_matrices)
+
+        if len(proportions) != n_classes:
+            raise ValueError(
+                f"Number of proportions ({len(proportions)}) must match "
+                f"number of Q matrices ({n_classes})"
+            )
+
+        # Validate Q matrices
+        for k, Q in enumerate(Q_matrices):
+            if Q.shape != (self.n_states, self.n_states):
+                raise ValueError(
+                    f"Q matrix {k} has shape {Q.shape}, "
+                    f"expected ({self.n_states}, {self.n_states})"
+                )
+
+        # Get current branch lengths from tree
+        branch_lengths = self._get_current_branch_lengths(scale_branch_lengths)
+
+        # Call Rust function (parallelized across site classes)
+        # Returns np.ndarray of shape (n_sites, n_classes)
+        site_log_likelihoods = crabml_rust.compute_site_log_likelihoods_by_class(
+            q_matrices=Q_matrices,
+            pi=pi,
+            tree_structure=self.tree_structure,
+            branch_lengths=branch_lengths.tolist(),
+            leaf_names=self.leaf_names_ordered,
+            sequences=self.sequences,
+            leaf_node_ids=self.leaf_node_ids
+        )
+
+        return site_log_likelihoods

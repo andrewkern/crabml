@@ -3,9 +3,12 @@ Result objects for hypothesis tests.
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 import json
 from .lrt import calculate_lrt
+
+if TYPE_CHECKING:
+    from .beb import BEBResult
 
 try:
     import pandas as pd
@@ -55,6 +58,7 @@ class LRTResult:
     alt_optimization_success: bool = True
     _override_lrt: Optional[float] = None
     _override_pvalue: Optional[float] = None
+    beb: Optional['BEBResult'] = None
 
     @property
     def LRT(self) -> float:
@@ -218,6 +222,11 @@ class LRTResult:
 
         lines.append("")
         lines.append("=" * 80)
+
+        # Add BEB summary if available
+        if self.beb is not None:
+            lines.append("")
+            lines.append(self.beb.summary())
 
         return "\n".join(lines)
 

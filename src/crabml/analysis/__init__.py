@@ -12,6 +12,8 @@ from .positive_selection import (
     m8a_vs_m8,
 )
 from .results import LRTResult, compare_results
+from .beb import BEBCalculator, BEBResult
+from .beb_visualizer import BEBVisualizer
 
 __all__ = [
     "positive_selection",
@@ -20,4 +22,7 @@ __all__ = [
     "m8a_vs_m8",
     "LRTResult",
     "compare_results",
+    "BEBCalculator",
+    "BEBResult",
+    "BEBVisualizer",
 ]
