@@ -13,11 +13,13 @@ dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
     "biopython>=1.81",
+    "matplotlib>=3.5",
+    "seaborn>=0.11",
     "crabml-rust",
 ]
 
 [tool.uv.sources]
-crabml-rust = { path = "rust", editable = true }
+crabml-rust = { path = "rust" }
 
 [project.optional-dependencies]
 dev = [

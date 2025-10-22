@@ -31,7 +31,19 @@ GENETIC_CODE = {
 }
 
 # Build codon to index mapping (excluding stop codons)
-CODONS = sorted([c for c in GENETIC_CODE.keys() if GENETIC_CODE[c] != '*'])
+# IMPORTANT: Order must match PAML's FROM61 array!
+# PAML uses nucleotide indices: T=0, C=1, A=2, G=3
+# Codon i has index: n0*16 + n1*4 + n2
+_INDEX_TO_NUCLEOTIDE_PAML = {0: 'T', 1: 'C', 2: 'A', 3: 'G'}
+CODONS = []
+for i in range(64):
+    n0 = i // 16
+    n1 = (i // 4) % 4
+    n2 = i % 4
+    codon = _INDEX_TO_NUCLEOTIDE_PAML[n0] + _INDEX_TO_NUCLEOTIDE_PAML[n1] + _INDEX_TO_NUCLEOTIDE_PAML[n2]
+    if GENETIC_CODE[codon] != '*':  # Skip stop codons (TAA, TAG, TGA)
+        CODONS.append(codon)
+
 CODON_TO_INDEX = {codon: i for i, codon in enumerate(CODONS)}
 INDEX_TO_CODON = {i: codon for i, codon in enumerate(CODONS)}
 

@@ -91,67 +91,82 @@ class Tree:
         if ';' not in newick:
             raise ValueError("Invalid Newick format: missing semicolon")
 
-        # Extract just the tree part (first line with semicolon)
+        # Extract just the tree part (all lines with content until semicolon)
         lines = newick.split('\n')
-        tree_line = None
+        tree_lines = []
         for line in lines:
-            if ';' in line:
-                tree_line = line[:line.index(';') + 1]
-                break
+            # Skip lines that look like PAML headers (just numbers)
+            if line.strip() and not re.match(r'^\s*\d+\s+\d+\s*$', line):
+                tree_lines.append(line)
+                if ';' in line:
+                    break
 
-        if tree_line is None:
+        if not tree_lines:
             raise ValueError("Invalid Newick format: no tree found")
 
-        # Remove remaining whitespace from tree line
-        tree_line = re.sub(r'\s+', '', tree_line)
+        # Join all tree lines and remove newlines/tabs (but keep spaces before #)
+        tree_line = ''.join(tree_lines)
+        # Remove only newlines and tabs, preserve spaces
+        tree_line = tree_line.replace('\n', '').replace('\t', '').replace('\r', '')
 
         # Parse the tree recursively
         node_id_counter = [0]  # Use list for mutable counter
+
+        def skip_whitespace(s: str, pos: int) -> int:
+            """Skip whitespace characters."""
+            while pos < len(s) and s[pos] in ' \t\n\r':
+                pos += 1
+            return pos
 
         def parse_node(s: str, start: int, parent: Optional[TreeNode] = None) -> tuple[TreeNode, int]:
             """Parse a node from position start in string s."""
             node = TreeNode(id=node_id_counter[0])
             node_id_counter[0] += 1
             node.parent = parent
-            pos = start
+            pos = skip_whitespace(s, start)
 
             # Check if this is an internal node (starts with '(')
             if pos < len(s) and s[pos] == '(':
-                pos += 1  # skip '('
+                pos = skip_whitespace(s, pos + 1)  # skip '(' and whitespace
                 # Parse children
                 while True:
                     child, pos = parse_node(s, pos, node)
                     node.children.append(child)
+                    pos = skip_whitespace(s, pos)
 
                     if pos < len(s) and s[pos] == ',':
-                        pos += 1  # skip ','
+                        pos = skip_whitespace(s, pos + 1)  # skip ',' and whitespace
                         continue
                     elif pos < len(s) and s[pos] == ')':
-                        pos += 1  # skip ')'
+                        pos = skip_whitespace(s, pos + 1)  # skip ')' and whitespace
                         break
                     else:
                         raise ValueError(f"Expected ',' or ')' at position {pos}")
 
             # Parse node name/label (for leaves or labeled internal nodes)
             name_start = pos
-            while pos < len(s) and s[pos] not in ',:();#':
+            while pos < len(s) and s[pos] not in ',:();# \t\n\r':
                 pos += 1
             if pos > name_start:
                 node.name = s[name_start:pos]
+
+            pos = skip_whitespace(s, pos)
 
             # Parse branch label (e.g., #1, #2)
             if pos < len(s) and s[pos] == '#':
                 pos += 1
                 label_start = pos
-                while pos < len(s) and s[pos] not in ',:();':
+                while pos < len(s) and s[pos] not in ',:(); \t\n\r':
                     pos += 1
                 node.label = '#' + s[label_start:pos]
+
+            pos = skip_whitespace(s, pos)
 
             # Parse branch length (e.g., :0.123)
             if pos < len(s) and s[pos] == ':':
                 pos += 1
                 length_start = pos
-                while pos < len(s) and s[pos] not in ',();':
+                while pos < len(s) and s[pos] not in ',(); \t\n\r':
                     pos += 1
                 try:
                     node.branch_length = float(s[length_start:pos])
@@ -208,3 +223,81 @@ class Tree:
 
         traverse(self.root)
         return result
+
+    def get_branches(self) -> list[tuple[TreeNode, TreeNode]]:
+        """
+        Get all branches as (parent, child) pairs.
+
+        Returns
+        -------
+        list[tuple[TreeNode, TreeNode]]
+            List of (parent, child) tuples for each branch
+        """
+        branches = []
+
+        def traverse(node: TreeNode) -> None:
+            """Recursively collect branches."""
+            for child in node.children:
+                branches.append((node, child))
+                traverse(child)
+
+        traverse(self.root)
+        return branches
+
+    def get_branch_labels(self) -> list[int]:
+        """
+        Get integer branch labels for branch-site models.
+
+        Converts string labels like '#0', '#1' to integers.
+        Branches without labels are assigned 0 (background).
+
+        Returns
+        -------
+        list[int]
+            Branch labels as integers (0=background, 1=foreground, etc.)
+        """
+        branches = self.get_branches()
+        labels = []
+
+        for parent, child in branches:
+            if child.label is not None:
+                # Parse label like '#1' -> 1
+                label_str = child.label.lstrip('#')
+                try:
+                    labels.append(int(label_str))
+                except ValueError:
+                    raise ValueError(f"Invalid branch label: {child.label}")
+            else:
+                # Default to background (0)
+                labels.append(0)
+
+        return labels
+
+    def validate_branch_site_labels(self) -> None:
+        """
+        Validate branch labels for branch-site models.
+
+        Branch-site models (Model A, A1) require exactly 2 label types:
+        - 0 (background)
+        - 1 (foreground)
+
+        Raises
+        ------
+        ValueError
+            If labels are not valid for branch-site models
+        """
+        labels = self.get_branch_labels()
+        unique_labels = sorted(set(labels))
+
+        if unique_labels != [0, 1]:
+            raise ValueError(
+                f"Branch-site models require exactly 2 label types (0 and 1). "
+                f"Found: {unique_labels}. "
+                f"Mark foreground branches with '#1' in the tree."
+            )
+
+        n_foreground = sum(1 for label in labels if label == 1)
+        if n_foreground == 0:
+            raise ValueError("No foreground branches marked with '#1'")
+
+        print(f"✓ Tree validation passed: {n_foreground} foreground branch(es) marked")
