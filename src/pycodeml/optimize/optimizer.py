@@ -17,6 +17,8 @@ from ..models.codon import (
     M1aCodonModel,
     M2aCodonModel,
     M3CodonModel,
+    M7CodonModel,
+    M8CodonModel,
     compute_codon_frequencies_f3x4,
 )
 from ..io.sequences import Alignment
@@ -781,3 +783,331 @@ class M3Optimizer:
         print(f"Iterations: {len(self.history)}")
 
         return opt_kappa, opt_omegas, opt_proportions, opt_log_likelihood
+
+
+class M7Optimizer:
+    """
+    Optimize parameters for M7 (beta) codon model.
+
+    Estimates:
+    - kappa (transition/transversion ratio)
+    - p_beta (beta distribution shape parameter 1)
+    - q_beta (beta distribution shape parameter 2)
+    - branch lengths
+    """
+
+    def __init__(
+        self,
+        alignment: Alignment,
+        tree: Tree,
+        ncatG: int = 10,
+        use_f3x4: bool = True,
+        optimize_branch_lengths: bool = True,
+        use_rust: bool = True
+    ):
+        """Initialize M7 optimizer."""
+        self.alignment = alignment
+        self.tree = tree
+        self.ncatG = ncatG
+        self.use_f3x4 = use_f3x4
+        self.optimize_branch_lengths = optimize_branch_lengths
+        self.use_rust = use_rust and RUST_AVAILABLE
+
+        if use_f3x4:
+            self.pi = compute_codon_frequencies_f3x4(alignment)
+        else:
+            self.pi = np.ones(61) / 61
+
+        # Create likelihood calculator
+        if self.use_rust:
+            self.calc = RustLikelihoodCalculator(alignment, tree)
+            print(f"Using Rust backend for M7 likelihood calculations ({ncatG} categories, parallelized)")
+        else:
+            self.calc = LikelihoodCalculator(alignment, tree)
+            if use_rust and not RUST_AVAILABLE:
+                print("Warning: Rust backend requested but not available, using Python")
+
+        self.branch_nodes = [node for node in tree.postorder() if node.parent is not None]
+        self.n_branches = len(self.branch_nodes)
+        self.history = []
+
+    def compute_log_likelihood(self, params: np.ndarray) -> float:
+        """Compute negative log-likelihood for optimization."""
+        kappa = np.exp(params[0])
+        p_beta = np.exp(params[1])
+        q_beta = np.exp(params[2])
+
+        # Update branch lengths
+        if self.optimize_branch_lengths:
+            for i, node in enumerate(self.branch_nodes):
+                node.branch_length = np.exp(params[3 + i])
+            branch_scale = 1.0
+        else:
+            branch_scale = np.exp(params[3])
+
+        # Create model
+        model = M7CodonModel(
+            kappa=kappa,
+            p_beta=p_beta,
+            q_beta=q_beta,
+            ncatG=self.ncatG,
+            pi=self.pi
+        )
+
+        # Compute likelihood
+        try:
+            Q_matrices = model.get_Q_matrices()
+            proportions, _ = model.get_site_classes()
+            log_likelihood = self.calc.compute_log_likelihood_site_classes(
+                Q_matrices, self.pi, proportions, scale_branch_lengths=branch_scale
+            )
+        except Exception as e:
+            print(f"Error computing likelihood: {e}")
+            return 1e10
+
+        self.history.append({
+            'kappa': kappa,
+            'p_beta': p_beta,
+            'q_beta': q_beta,
+            'log_likelihood': log_likelihood
+        })
+
+        return -log_likelihood
+
+    def optimize(
+        self,
+        init_kappa: float = 2.0,
+        init_p_beta: float = 0.5,
+        init_q_beta: float = 0.5,
+        method: str = 'L-BFGS-B',
+        maxiter: int = 200
+    ) -> Tuple[float, float, float, float]:
+        """Optimize M7 parameters."""
+        # Initial parameters
+        if self.optimize_branch_lengths:
+            init_branch_lengths = [node.branch_length for node in self.branch_nodes]
+            init_params = np.array(
+                [np.log(init_kappa), np.log(init_p_beta), np.log(init_q_beta)] +
+                [np.log(max(bl, 0.001)) for bl in init_branch_lengths]
+            )
+            bounds = (
+                [(np.log(0.1), np.log(100)),      # kappa
+                 (np.log(0.005), np.log(99)),     # p_beta
+                 (np.log(0.005), np.log(99))] +   # q_beta
+                [(np.log(0.0001), np.log(50))] * self.n_branches
+            )
+        else:
+            init_params = np.array([
+                np.log(init_kappa),
+                np.log(init_p_beta),
+                np.log(init_q_beta),
+                np.log(1.0)
+            ])
+            bounds = [
+                (np.log(0.1), np.log(100)),
+                (np.log(0.005), np.log(99)),
+                (np.log(0.005), np.log(99)),
+                (np.log(0.01), np.log(100))
+            ]
+
+        print(f"Starting M7 optimization with method={method}, maxiter={maxiter}")
+        print(f"Initial: kappa={init_kappa:.4f}, p={init_p_beta:.4f}, q={init_q_beta:.4f}")
+        print(f"Beta distribution discretized into {self.ncatG} categories")
+
+        self.history = []
+
+        result = minimize(
+            self.compute_log_likelihood,
+            init_params,
+            method=method,
+            bounds=bounds,
+            options={'maxiter': maxiter}
+        )
+
+        opt_kappa = np.exp(result.x[0])
+        opt_p_beta = np.exp(result.x[1])
+        opt_q_beta = np.exp(result.x[2])
+        opt_log_likelihood = -result.fun
+
+        print(f"\nOptimization complete!")
+        print(f"Final: kappa={opt_kappa:.4f}, p={opt_p_beta:.4f}, q={opt_q_beta:.4f}")
+        print(f"Log-likelihood: {opt_log_likelihood:.6f}")
+        print(f"Iterations: {len(self.history)}")
+
+        return opt_kappa, opt_p_beta, opt_q_beta, opt_log_likelihood
+
+
+class M8Optimizer:
+    """
+    Optimize parameters for M8 (beta & omega>1) codon model.
+
+    Estimates:
+    - kappa (transition/transversion ratio)
+    - p0 (proportion in beta distribution)
+    - p_beta (beta shape parameter 1)
+    - q_beta (beta shape parameter 2)
+    - omega_s (omega for positive selection class, > 1)
+    - branch lengths
+    """
+
+    def __init__(
+        self,
+        alignment: Alignment,
+        tree: Tree,
+        ncatG: int = 10,
+        use_f3x4: bool = True,
+        optimize_branch_lengths: bool = True,
+        use_rust: bool = True
+    ):
+        """Initialize M8 optimizer."""
+        self.alignment = alignment
+        self.tree = tree
+        self.ncatG = ncatG
+        self.use_f3x4 = use_f3x4
+        self.optimize_branch_lengths = optimize_branch_lengths
+        self.use_rust = use_rust and RUST_AVAILABLE
+
+        if use_f3x4:
+            self.pi = compute_codon_frequencies_f3x4(alignment)
+        else:
+            self.pi = np.ones(61) / 61
+
+        # Create likelihood calculator
+        if self.use_rust:
+            self.calc = RustLikelihoodCalculator(alignment, tree)
+            print(f"Using Rust backend for M8 likelihood calculations ({ncatG}+1 categories, parallelized)")
+        else:
+            self.calc = LikelihoodCalculator(alignment, tree)
+            if use_rust and not RUST_AVAILABLE:
+                print("Warning: Rust backend requested but not available, using Python")
+
+        self.branch_nodes = [node for node in tree.postorder() if node.parent is not None]
+        self.n_branches = len(self.branch_nodes)
+        self.history = []
+
+    def compute_log_likelihood(self, params: np.ndarray) -> float:
+        """Compute negative log-likelihood for optimization."""
+        kappa = np.exp(params[0])
+        p0 = 1.0 / (1.0 + np.exp(-params[1]))  # Sigmoid for [0,1]
+        p_beta = np.exp(params[2])
+        q_beta = np.exp(params[3])
+        omega_s = np.exp(params[4])
+
+        # Update branch lengths
+        if self.optimize_branch_lengths:
+            for i, node in enumerate(self.branch_nodes):
+                node.branch_length = np.exp(params[5 + i])
+            branch_scale = 1.0
+        else:
+            branch_scale = np.exp(params[5])
+
+        # Create model
+        model = M8CodonModel(
+            kappa=kappa,
+            p0=p0,
+            p_beta=p_beta,
+            q_beta=q_beta,
+            omega_s=omega_s,
+            ncatG=self.ncatG,
+            pi=self.pi
+        )
+
+        # Compute likelihood
+        try:
+            Q_matrices = model.get_Q_matrices()
+            proportions, _ = model.get_site_classes()
+            log_likelihood = self.calc.compute_log_likelihood_site_classes(
+                Q_matrices, self.pi, proportions, scale_branch_lengths=branch_scale
+            )
+        except Exception as e:
+            print(f"Error computing likelihood: {e}")
+            return 1e10
+
+        self.history.append({
+            'kappa': kappa,
+            'p0': p0,
+            'p_beta': p_beta,
+            'q_beta': q_beta,
+            'omega_s': omega_s,
+            'log_likelihood': log_likelihood
+        })
+
+        return -log_likelihood
+
+    def optimize(
+        self,
+        init_kappa: float = 2.0,
+        init_p0: float = 0.9,
+        init_p_beta: float = 0.5,
+        init_q_beta: float = 0.5,
+        init_omega_s: float = 2.0,
+        method: str = 'L-BFGS-B',
+        maxiter: int = 200
+    ) -> Tuple[float, float, float, float, float, float]:
+        """Optimize M8 parameters."""
+        # Initial parameters
+        if self.optimize_branch_lengths:
+            init_branch_lengths = [node.branch_length for node in self.branch_nodes]
+            init_params = np.array(
+                [np.log(init_kappa),
+                 np.log(init_p0 / (1 - init_p0)),  # Logit transform
+                 np.log(init_p_beta),
+                 np.log(init_q_beta),
+                 np.log(init_omega_s)] +
+                [np.log(max(bl, 0.001)) for bl in init_branch_lengths]
+            )
+            bounds = (
+                [(np.log(0.1), np.log(100)),       # kappa
+                 (-10, 10),                         # p0 (logit)
+                 (np.log(0.005), np.log(99)),       # p_beta
+                 (np.log(0.005), np.log(99)),       # q_beta
+                 (np.log(1.001), np.log(20))] +     # omega_s
+                [(np.log(0.0001), np.log(50))] * self.n_branches
+            )
+        else:
+            init_params = np.array([
+                np.log(init_kappa),
+                np.log(init_p0 / (1 - init_p0)),
+                np.log(init_p_beta),
+                np.log(init_q_beta),
+                np.log(init_omega_s),
+                np.log(1.0)
+            ])
+            bounds = [
+                (np.log(0.1), np.log(100)),
+                (-10, 10),
+                (np.log(0.005), np.log(99)),
+                (np.log(0.005), np.log(99)),
+                (np.log(1.001), np.log(20)),
+                (np.log(0.01), np.log(100))
+            ]
+
+        print(f"Starting M8 optimization with method={method}, maxiter={maxiter}")
+        print(f"Initial: kappa={init_kappa:.4f}, p0={init_p0:.4f}, p={init_p_beta:.4f}, "
+              f"q={init_q_beta:.4f}, omega_s={init_omega_s:.4f}")
+        print(f"Beta distribution discretized into {self.ncatG} categories + 1 positive selection class")
+
+        self.history = []
+
+        result = minimize(
+            self.compute_log_likelihood,
+            init_params,
+            method=method,
+            bounds=bounds,
+            options={'maxiter': maxiter}
+        )
+
+        opt_kappa = np.exp(result.x[0])
+        opt_p0 = 1.0 / (1.0 + np.exp(-result.x[1]))
+        opt_p_beta = np.exp(result.x[2])
+        opt_q_beta = np.exp(result.x[3])
+        opt_omega_s = np.exp(result.x[4])
+        opt_log_likelihood = -result.fun
+
+        print(f"\nOptimization complete!")
+        print(f"Final: kappa={opt_kappa:.4f}, p0={opt_p0:.4f}, p={opt_p_beta:.4f}, "
+              f"q={opt_q_beta:.4f}, omega_s={opt_omega_s:.4f}")
+        print(f"Log-likelihood: {opt_log_likelihood:.6f}")
+        print(f"Iterations: {len(self.history)}")
+
+        return opt_kappa, opt_p0, opt_p_beta, opt_q_beta, opt_omega_s, opt_log_likelihood
