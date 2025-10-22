@@ -406,11 +406,16 @@ class M2aOptimizer:
         omega0 = np.exp(params[1])
         omega2 = np.exp(params[2])
 
-        # Use softmax for proportions (ensures sum to 1)
-        logits = params[3:5]  # p0 and p1 logits
-        exp_logits = np.exp(logits - np.max(logits))  # Numerical stability
-        props = exp_logits / (exp_logits.sum() + 1)  # Reserve space for p2
-        p0, p1 = props[0], props[1]
+        # Hierarchical parameterization to ensure p0 + p1 + p2 = 1
+        # p0 is the proportion of purifying sites
+        # f is the fraction of remaining sites that are neutral (vs positive)
+        # So: p0 ∈ [0,1], f ∈ [0,1]
+        #     p1 = (1 - p0) * f
+        #     p2 = (1 - p0) * (1 - f)
+        p0 = 1.0 / (1.0 + np.exp(-params[3]))  # Sigmoid for p0
+        f = 1.0 / (1.0 + np.exp(-params[4]))    # Sigmoid for fraction f
+        p1 = (1.0 - p0) * f
+        # p2 = (1.0 - p0) * (1.0 - f)  # Not needed, just for reference
 
         # Update branch lengths
         if self.optimize_branch_lengths:
@@ -459,12 +464,21 @@ class M2aOptimizer:
         maxiter: int = 200
     ) -> Tuple[float, float, float, float, float, float]:
         """Optimize M2a parameters."""
-        # Initial parameters
+        # Hierarchical parameterization:
+        # p0 is the proportion of purifying sites
+        # f is the fraction of remaining sites that are neutral
+        # p1 = (1 - p0) * f, p2 = (1 - p0) * (1 - f)
+        init_f = init_p1 / (1.0 - init_p0) if init_p0 < 1.0 else 0.5
+        init_f = max(0.01, min(0.99, init_f))  # Keep in valid range
+
+        logit_p0 = np.log(init_p0 / (1 - init_p0))
+        logit_f = np.log(init_f / (1 - init_f))
+
         if self.optimize_branch_lengths:
             init_branch_lengths = [node.branch_length for node in self.branch_nodes]
             init_params = np.array(
                 [np.log(init_kappa), np.log(init_omega0), np.log(init_omega2),
-                 0.0, 0.0] +  # p0, p1 logits (will be normalized)
+                 logit_p0, logit_f] +  # p0 and f logits
                 [np.log(max(bl, 0.001)) for bl in init_branch_lengths]
             )
             bounds = (
@@ -477,7 +491,7 @@ class M2aOptimizer:
         else:
             init_params = np.array([
                 np.log(init_kappa), np.log(init_omega0), np.log(init_omega2),
-                0.0, 0.0, np.log(1.0)
+                logit_p0, logit_f, np.log(1.0)
             ])
             bounds = [
                 (np.log(0.1), np.log(100)),
@@ -505,10 +519,10 @@ class M2aOptimizer:
         opt_omega0 = np.exp(result.x[1])
         opt_omega2 = np.exp(result.x[2])
 
-        logits = result.x[3:5]
-        exp_logits = np.exp(logits - np.max(logits))
-        props = exp_logits / (exp_logits.sum() + 1)
-        opt_p0, opt_p1 = props[0], props[1]
+        # Extract proportions using hierarchical parameterization
+        opt_p0 = 1.0 / (1.0 + np.exp(-result.x[3]))
+        opt_f = 1.0 / (1.0 + np.exp(-result.x[4]))
+        opt_p1 = (1.0 - opt_p0) * opt_f
 
         opt_log_likelihood = -result.fun
 

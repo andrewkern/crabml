@@ -27,23 +27,97 @@ uv sync --all-extras
 
 This single command installs all Python dependencies and builds the Rust extension.
 
-## Usage
+## Quick Start
+
+### Testing for Positive Selection (Recommended)
+
+The easiest way to test for positive selection:
 
 ```python
-from crabml.io.sequences import read_phylip
-from crabml.io.trees import read_newick
-from crabml.optimize import M0Optimizer
+from crabml.analysis import test_positive_selection
+
+# Run standard likelihood ratio tests
+results = test_positive_selection(
+    alignment='lysozyme.fasta',
+    tree='lysozyme.tree',
+    test='both'  # Runs both M1a vs M2a and M7 vs M8
+)
+
+# Check results
+print(results['M1a_vs_M2a'].summary())
+print(results['M7_vs_M8'].summary())
+
+# Get p-values
+if results['M1a_vs_M2a'].significant(0.05):
+    print(f"Positive selection detected! ω = {results['M1a_vs_M2a'].omega_positive:.2f}")
+```
+
+### Advanced: Direct Model Optimization
+
+For more control over optimization:
+
+```python
+from crabml.io.sequences import Alignment
+from crabml.io.trees import Tree
+from crabml.optimize import M2aOptimizer
 
 # Load data
-alignment = read_phylip("alignment.phy")
-tree = read_newick("tree.nwk")
+alignment = Alignment.from_fasta("alignment.fasta", seqtype='codon')
+tree = Tree.from_newick("tree.nwk")
 
-# Run M0 model (3-10x faster than PAML)
-optimizer = M0Optimizer(alignment, tree)
-result = optimizer.optimize()
+# Run M2a model optimization
+optimizer = M2aOptimizer(alignment, tree)
+kappa, omega0, omega2, p0, p1, lnL = optimizer.optimize()
 
-print(f"Log-likelihood: {result['log_likelihood']:.6f}")
-print(f"Parameters: kappa={result['kappa']:.4f}, omega={result['omega']:.4f}")
+print(f"Log-likelihood: {lnL:.6f}")
+print(f"ω for positive selection: {omega2:.4f}")
+```
+
+## Hypothesis Testing
+
+crabML provides publication-ready hypothesis tests for detecting positive selection:
+
+### Standard Tests
+
+- **M1a vs M2a**: Tests for positive selection against nearly neutral null model
+- **M7 vs M8**: Tests for positive selection using beta distribution models
+
+Both tests:
+- Calculate likelihood ratio test (LRT) statistics automatically
+- Provide p-values from chi-square distribution
+- Include formatted output suitable for publications
+- Export results to dict/JSON for further analysis
+
+### Example Output
+
+```
+================================================================================
+Likelihood Ratio Test for Positive Selection
+================================================================================
+
+Test: M1a vs M2a
+
+NULL MODEL (M1a):
+  Log-likelihood: -902.503872
+  Parameters:
+    p0 = 0.4923 (proportion ω < 1)
+    ω0 = 0.0538
+    κ  = 2.2945
+
+ALTERNATIVE MODEL (M2a):
+  Log-likelihood: -899.998568
+  Parameters:
+    p2 = 0.2075 (proportion ω > 1)
+    ω2 = 3.4472
+
+LIKELIHOOD RATIO TEST:
+  LRT statistic: 5.0106
+  Degrees of freedom: 2
+  P-value: 0.0817
+
+CONCLUSION:
+  No significant evidence for positive selection (α = 0.05)
+================================================================================
 ```
 
 ## Supported Models
