@@ -14,6 +14,7 @@ from ..models.codon import (
     M3CodonModel,
     M7CodonModel,
     M8CodonModel,
+    M8aCodonModel,
     compute_codon_frequencies_f3x4,
 )
 from ..io.sequences import Alignment
@@ -1068,6 +1069,179 @@ class M8Optimizer:
         print(f"Iterations: {len(self.history)}")
 
         return opt_kappa, opt_p0, opt_p_beta, opt_q_beta, opt_omega_s, opt_log_likelihood
+
+
+class M8aOptimizer:
+    """
+    Optimize parameters for M8a (beta & omega=1) codon model.
+
+    This is the null model for the M8a vs M8 likelihood ratio test.
+    The only difference from M8 is that omega_s is fixed to 1.0 (not optimized).
+
+    Estimates:
+    - kappa (transition/transversion ratio)
+    - p0 (proportion in beta distribution)
+    - p_beta (beta shape parameter 1)
+    - q_beta (beta shape parameter 2)
+    - branch lengths
+
+    Note: omega_s is FIXED to 1.0 (neutral), NOT optimized.
+    """
+
+    def __init__(
+        self,
+        alignment: Alignment,
+        tree: Tree,
+        ncatG: int = 10,
+        use_f3x4: bool = True,
+        optimize_branch_lengths: bool = True
+    ):
+        """Initialize M8a optimizer."""
+        self.alignment = alignment
+        self.tree = tree
+        self.ncatG = ncatG
+        self.use_f3x4 = use_f3x4
+        self.optimize_branch_lengths = optimize_branch_lengths
+
+        if use_f3x4:
+            self.pi = compute_codon_frequencies_f3x4(alignment)
+        else:
+            self.pi = np.ones(61) / 61
+
+        # Create Rust likelihood calculator
+        self.calc = RustLikelihoodCalculator(alignment, tree)
+
+        self.branch_nodes = [node for node in tree.postorder() if node.parent is not None]
+        self.n_branches = len(self.branch_nodes)
+        self.history = []
+
+    def compute_log_likelihood(self, params: np.ndarray) -> float:
+        """Compute negative log-likelihood for optimization."""
+        kappa = np.exp(params[0])
+        p0 = 1.0 / (1.0 + np.exp(-params[1]))  # Sigmoid for [0,1]
+        p_beta = np.exp(params[2])
+        q_beta = np.exp(params[3])
+        # Note: omega_s is FIXED to 1.0, not optimized
+
+        # Update branch lengths
+        if self.optimize_branch_lengths:
+            for i, node in enumerate(self.branch_nodes):
+                node.branch_length = np.exp(params[4 + i])
+            branch_scale = 1.0
+        else:
+            branch_scale = np.exp(params[4])
+
+        # Create model with omega_s fixed to 1.0
+        model = M8aCodonModel(
+            kappa=kappa,
+            p0=p0,
+            p_beta=p_beta,
+            q_beta=q_beta,
+            ncatG=self.ncatG,
+            pi=self.pi
+        )
+
+        # Compute likelihood
+        try:
+            Q_matrices = model.get_Q_matrices()
+            proportions, _ = model.get_site_classes()
+            log_likelihood = self.calc.compute_log_likelihood_site_classes(
+                Q_matrices, self.pi, proportions, scale_branch_lengths=branch_scale
+            )
+        except Exception as e:
+            print(f"Error computing likelihood: {e}")
+            return 1e10
+
+        self.history.append({
+            'kappa': kappa,
+            'p0': p0,
+            'p_beta': p_beta,
+            'q_beta': q_beta,
+            'omega_s': 1.0,  # Fixed
+            'log_likelihood': log_likelihood
+        })
+
+        return -log_likelihood
+
+    def optimize(
+        self,
+        init_kappa: float = 2.0,
+        init_p0: float = 0.9,
+        init_p_beta: float = 0.5,
+        init_q_beta: float = 0.5,
+        method: str = 'L-BFGS-B',
+        maxiter: int = 200
+    ) -> Tuple[float, float, float, float, float]:
+        """
+        Optimize M8a parameters.
+
+        Returns
+        -------
+        tuple
+            (kappa, p0, p_beta, q_beta, log_likelihood)
+            Note: omega_s is always 1.0 (not returned as it's fixed)
+        """
+        # Initial parameters (NOTE: 4 params instead of 5, no omega_s)
+        if self.optimize_branch_lengths:
+            init_branch_lengths = [node.branch_length for node in self.branch_nodes]
+            init_params = np.array(
+                [np.log(init_kappa),
+                 np.log(init_p0 / (1 - init_p0)),  # Logit transform
+                 np.log(init_p_beta),
+                 np.log(init_q_beta)] +
+                [np.log(max(bl, 0.001)) for bl in init_branch_lengths]
+            )
+            bounds = (
+                [(np.log(0.1), np.log(100)),       # kappa
+                 (-10, 10),                         # p0 (logit)
+                 (np.log(0.005), np.log(99)),       # p_beta
+                 (np.log(0.005), np.log(99))] +     # q_beta
+                [(np.log(0.0001), np.log(50))] * self.n_branches
+            )
+        else:
+            init_params = np.array([
+                np.log(init_kappa),
+                np.log(init_p0 / (1 - init_p0)),
+                np.log(init_p_beta),
+                np.log(init_q_beta),
+                np.log(1.0)
+            ])
+            bounds = [
+                (np.log(0.1), np.log(100)),
+                (-10, 10),
+                (np.log(0.005), np.log(99)),
+                (np.log(0.005), np.log(99)),
+                (np.log(0.01), np.log(100))
+            ]
+
+        print(f"Starting M8a optimization with method={method}, maxiter={maxiter}")
+        print(f"Initial: kappa={init_kappa:.4f}, p0={init_p0:.4f}, p={init_p_beta:.4f}, "
+              f"q={init_q_beta:.4f}, omega_s=1.0 (FIXED)")
+        print(f"Beta distribution discretized into {self.ncatG} categories + 1 neutral class (ω=1)")
+
+        self.history = []
+
+        result = minimize(
+            self.compute_log_likelihood,
+            init_params,
+            method=method,
+            bounds=bounds,
+            options={'maxiter': maxiter}
+        )
+
+        opt_kappa = np.exp(result.x[0])
+        opt_p0 = 1.0 / (1.0 + np.exp(-result.x[1]))
+        opt_p_beta = np.exp(result.x[2])
+        opt_q_beta = np.exp(result.x[3])
+        opt_log_likelihood = -result.fun
+
+        print(f"\nOptimization complete!")
+        print(f"Final: kappa={opt_kappa:.4f}, p0={opt_p0:.4f}, p={opt_p_beta:.4f}, "
+              f"q={opt_q_beta:.4f}, omega_s=1.0 (FIXED)")
+        print(f"Log-likelihood: {opt_log_likelihood:.6f}")
+        print(f"Iterations: {len(self.history)}")
+
+        return opt_kappa, opt_p0, opt_p_beta, opt_q_beta, opt_log_likelihood
 
 
 class M5Optimizer:

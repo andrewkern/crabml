@@ -9,6 +9,7 @@ from .positive_selection import (
     positive_selection,
     m1a_vs_m2a,
     m7_vs_m8,
+    m8a_vs_m8,
 )
 from .results import LRTResult, compare_results
 
@@ -16,6 +17,7 @@ __all__ = [
     "positive_selection",
     "m1a_vs_m2a",
     "m7_vs_m8",
+    "m8a_vs_m8",
     "LRTResult",
     "compare_results",
 ]

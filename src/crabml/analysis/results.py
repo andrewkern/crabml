@@ -53,15 +53,21 @@ class LRTResult:
     alt_params: Dict[str, Any]
     null_optimization_success: bool = True
     alt_optimization_success: bool = True
+    _override_lrt: Optional[float] = None
+    _override_pvalue: Optional[float] = None
 
     @property
     def LRT(self) -> float:
         """Likelihood ratio test statistic: 2 * (lnL_alt - lnL_null)"""
+        if self._override_lrt is not None:
+            return self._override_lrt
         return 2 * (self.lnL_alt - self.lnL_null)
 
     @property
     def pvalue(self) -> float:
-        """P-value from chi-square distribution"""
+        """P-value from chi-square distribution (or mixture distribution if overridden)"""
+        if self._override_pvalue is not None:
+            return self._override_pvalue
         _, pval = calculate_lrt(self.lnL_null, self.lnL_alt, self.df)
         return pval
 

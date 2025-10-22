@@ -8,7 +8,7 @@ import numpy as np
 
 from ..io.sequences import Alignment
 from ..io.trees import Tree
-from ..optimize.optimizer import M1aOptimizer, M2aOptimizer, M7Optimizer, M8Optimizer
+from ..optimize.optimizer import M1aOptimizer, M2aOptimizer, M7Optimizer, M8Optimizer, M8aOptimizer
 from .results import LRTResult
 
 
@@ -250,6 +250,149 @@ def m7_vs_m8(
     if verbose:
         print("\n" + "=" * 80)
         print(result.summary())
+
+    return result
+
+
+def m8a_vs_m8(
+    alignment: Union[str, Alignment],
+    tree: Union[str, Tree],
+    verbose: bool = True
+) -> LRTResult:
+    """
+    Test for positive selection using M8a (null) vs M8 (alternative).
+
+    This is an alternative to M7 vs M8 that uses a 50:50 mixture chi-square
+    null distribution. M8a is M8 with omega_s fixed to 1 (neutral), while
+    M8 allows omega_s > 1 (positive selection).
+
+    The null distribution is a 50:50 mixture of a point mass at 0 and χ²(1)
+    because the null hypothesis (ω = 1) is on the boundary of the parameter
+    space (ω >= 1).
+
+    Parameters
+    ----------
+    alignment : str or Alignment
+        Path to FASTA file or Alignment object
+    tree : str or Tree
+        Path to Newick file or Tree object
+    verbose : bool, default=True
+        Print optimization progress
+
+    Returns
+    -------
+    LRTResult
+        Test results including LRT statistic, p-value, and model parameters
+
+    Examples
+    --------
+    >>> from crabml.analysis import m8a_vs_m8
+    >>> result = m8a_vs_m8('alignment.fasta', 'tree.nwk')
+    >>> print(result.summary())
+    >>> if result.significant(0.05):
+    ...     print(f"Positive selection detected! ω = {result.omega_positive:.2f}")
+
+    Notes
+    -----
+    The test uses a likelihood ratio test with 1 degree of freedom
+    (one additional parameter in M8: ωs is free vs fixed to 1).
+
+    Because ω=1 is on the boundary of the parameter space, the null
+    distribution is a 50:50 mixture of point mass 0 and χ²(1).
+
+    Critical values for α levels (from Self & Liang 1987):
+    - α = 0.05: LRT > 2.71
+    - α = 0.01: LRT > 5.41
+
+    References
+    ----------
+    Self, S. G., & Liang, K. Y. (1987). Asymptotic properties of maximum
+    likelihood estimators and likelihood ratio tests under nonstandard
+    conditions. Journal of the American Statistical Association, 82(398), 605-610.
+
+    Yang, Z., Nielsen, R., Goldman, N., & Pedersen, A. M. K. (2000).
+    Codon-substitution models for heterogeneous selection pressure at amino
+    acid sites. Genetics, 155(1), 431-449.
+    """
+    # Load data
+    if isinstance(alignment, str):
+        align = Alignment.from_fasta(alignment, seqtype='codon')
+    else:
+        align = alignment
+
+    if isinstance(tree, str):
+        tree_obj = Tree.from_newick(tree)
+    else:
+        tree_obj = tree
+
+    # Optimize M8a (null model - omega_s fixed to 1)
+    if verbose:
+        print("=" * 80)
+        print("Optimizing M8a (Beta & ω=1) model...")
+        print("=" * 80)
+
+    m8a_optimizer = M8aOptimizer(align, tree_obj)
+    try:
+        kappa_m8a, p0_m8a, p_beta_m8a, q_beta_m8a, lnL_m8a = m8a_optimizer.optimize()
+        m8a_success = True
+    except Exception as e:
+        warnings.warn(f"M8a optimization failed: {e}", UserWarning)
+        kappa_m8a, p0_m8a, p_beta_m8a, q_beta_m8a, lnL_m8a = 0, 0, 0, 0, -np.inf
+        m8a_success = False
+
+    # Optimize M8 (alternative model - omega_s > 1 allowed)
+    if verbose:
+        print("\n" + "=" * 80)
+        print("Optimizing M8 (Beta & ω>1) model...")
+        print("=" * 80)
+
+    m8_optimizer = M8Optimizer(align, tree_obj)
+    try:
+        kappa_m8, p0_m8, p_beta_m8, q_beta_m8, omega_s_m8, lnL_m8 = m8_optimizer.optimize()
+        m8_success = True
+    except Exception as e:
+        warnings.warn(f"M8 optimization failed: {e}", UserWarning)
+        kappa_m8, p0_m8, p_beta_m8, q_beta_m8, omega_s_m8, lnL_m8 = 0, 0, 0, 0, 0, -np.inf
+        m8_success = False
+
+    # Create result object with 50:50 mixture null distribution
+    from .lrt import calculate_lrt_mixture
+
+    lrt_stat, pval = calculate_lrt_mixture(lnL_m8a, lnL_m8, df=1)
+
+    result = LRTResult(
+        test_name="M8a vs M8",
+        null_model="M8a",
+        alt_model="M8",
+        lnL_null=lnL_m8a,
+        lnL_alt=lnL_m8,
+        df=1,  # One extra parameter in M8: ωs (free vs fixed to 1)
+        null_params={
+            'kappa': kappa_m8a,
+            'p0': p0_m8a,
+            'p_beta': p_beta_m8a,
+            'q_beta': q_beta_m8a,
+            'omega_s': 1.0,  # Fixed in M8a
+        },
+        alt_params={
+            'kappa': kappa_m8,
+            'p0': p0_m8,
+            'p_beta': p_beta_m8,
+            'q_beta': q_beta_m8,
+            'omega_s': omega_s_m8,
+        },
+        null_optimization_success=m8a_success,
+        alt_optimization_success=m8_success,
+        _override_lrt=lrt_stat,
+        _override_pvalue=pval,
+    )
+
+    if verbose:
+        print("\n" + "=" * 80)
+        print(result.summary())
+        print("\nNote: This test uses a 50:50 mixture chi-square null distribution")
+        print("because ω=1 is on the boundary of the parameter space.")
+        print("Critical values: α=0.05 → LRT>2.71, α=0.01 → LRT>5.41")
 
     return result
 

@@ -27,6 +27,7 @@ from crabml.models.codon import (
     M6CodonModel,
     M7CodonModel,
     M8CodonModel,
+    M8aCodonModel,
     M9CodonModel,
     compute_codon_frequencies_f3x4,
 )
@@ -495,6 +496,69 @@ class TestRustPAMLValidation:
             rtol=1e-5,
             atol=1e-5,
             err_msg="Rust M8 likelihood should match PAML exactly"
+        )
+
+    def test_rust_m8a_likelihood_matches_paml(self, lysozyme_data):
+        """
+        Test Rust M8a likelihood matches PAML reference.
+
+        M8a is the null model for M8a vs M8 likelihood ratio test.
+        It's M8 but with omega_s fixed to 1.0 (neutral).
+
+        PAML reference (from lysozyme_m8a_out.txt):
+        lnL = -902.503869
+        kappa = 4.297905
+        p0 = 0.41271, p = 0.005 (at boundary), q = 58.524404
+        omega_s = 1.0 (fixed)
+        ncatG = 10
+        """
+        aln = lysozyme_data["alignment"]
+        pi = lysozyme_data["pi"]
+
+        # PAML's optimized tree for M8a
+        tree_str = (
+            "((Hsa_Human: 0.025558, Hla_gibbon: 0.039375): 0.069610, "
+            "((Cgu/Can_colobus: 0.044140, Pne_langur: 0.052277): 0.077775, "
+            "Mmu_rhesus: 0.021343): 0.044215, "
+            "(Ssc_squirrelM: 0.041574, Cja_marmoset: 0.023673): 0.125738);"
+        )
+        tree = Tree.from_newick(tree_str)
+
+        # Create M8a model with PAML's optimized parameters
+        model = M8aCodonModel(
+            kappa=4.297905,
+            p0=0.41271,
+            p_beta=0.005,  # At lower boundary
+            q_beta=58.524404,
+            ncatG=10,
+            pi=pi
+        )
+
+        # Get Q matrices and proportions
+        Q_matrices = model.get_Q_matrices()
+        proportions = model.get_site_classes()[0]
+
+        # Compute likelihood using Rust backend (parallelized)
+        calc = RustLikelihoodCalculator(aln, tree)
+        lnL_rust = calc.compute_log_likelihood_site_classes(
+            Q_matrices, pi, proportions
+        )
+
+        paml_lnL = -902.503869
+
+        print(f"\nM8a Model (Rust Backend - Parallelized):")
+        print(f"  Rust lnL:     {lnL_rust:.6f}")
+        print(f"  PAML lnL:     {paml_lnL:.6f}")
+        print(f"  Difference:   {abs(lnL_rust - paml_lnL):.6f}")
+        print(f"  Relative:     {abs(lnL_rust - paml_lnL)/abs(paml_lnL)*100:.4f}%")
+
+        # Should match to machine precision
+        np.testing.assert_allclose(
+            lnL_rust,
+            paml_lnL,
+            rtol=1e-5,
+            atol=1e-5,
+            err_msg="Rust M8a likelihood should match PAML exactly"
         )
 
     def test_rust_m5_likelihood_matches_paml(self, lysozyme_data):
