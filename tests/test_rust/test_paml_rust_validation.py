@@ -22,8 +22,12 @@ from pycodeml.models.codon import (
     M1aCodonModel,
     M2aCodonModel,
     M3CodonModel,
+    M4CodonModel,
+    M5CodonModel,
+    M6CodonModel,
     M7CodonModel,
     M8CodonModel,
+    M9CodonModel,
     compute_codon_frequencies_f3x4,
 )
 from pycodeml.io.sequences import Alignment
@@ -491,6 +495,243 @@ class TestRustPAMLValidation:
             rtol=1e-5,
             atol=1e-5,
             err_msg="Rust M8 likelihood should match PAML exactly"
+        )
+
+    def test_rust_m5_likelihood_matches_paml(self, lysozyme_data):
+        """
+        Test Rust M5 likelihood matches PAML reference.
+
+        PAML reference (from lysozyme_m5_out.txt):
+        lnL = -900.222360
+        kappa = 4.91082
+        alpha = 0.43434, beta = 0.44697
+        ncatG = 10
+        """
+        aln = lysozyme_data["alignment"]
+        pi = lysozyme_data["pi"]
+
+        # PAML's optimized tree for M5
+        tree_str = (
+            "((Hsa_Human: 0.025431, Hla_gibbon: 0.040846): 0.075035, "
+            "((Cgu/Can_colobus: 0.044631, Pne_langur: 0.053006): 0.082704, "
+            "Mmu_rhesus: 0.020012): 0.045472, "
+            "(Ssc_squirrelM: 0.042442, Cja_marmoset: 0.024538): 0.133407);"
+        )
+        tree = Tree.from_newick(tree_str)
+
+        # Create M5 model with PAML's optimized parameters
+        model = M5CodonModel(
+            kappa=4.91082,
+            alpha=0.43434,
+            beta=0.44697,
+            ncatG=10,
+            pi=pi
+        )
+
+        # Get Q matrices and proportions
+        Q_matrices = model.get_Q_matrices()
+        proportions = model.get_site_classes()[0]
+
+        # Compute likelihood using Rust backend (parallelized)
+        calc = RustLikelihoodCalculator(aln, tree)
+        lnL_rust = calc.compute_log_likelihood_site_classes(
+            Q_matrices, pi, proportions
+        )
+
+        paml_lnL = -900.222360
+
+        print(f"\nM5 Model (Rust Backend - Parallelized):")
+        print(f"  Rust lnL:     {lnL_rust:.6f}")
+        print(f"  PAML lnL:     {paml_lnL:.6f}")
+        print(f"  Difference:   {abs(lnL_rust - paml_lnL):.6f}")
+        print(f"  Relative:     {abs(lnL_rust - paml_lnL)/abs(paml_lnL)*100:.4f}%")
+
+        # Should match to machine precision
+        np.testing.assert_allclose(
+            lnL_rust,
+            paml_lnL,
+            rtol=1e-5,
+            atol=1e-5,
+            err_msg="Rust M5 likelihood should match PAML exactly"
+        )
+
+    def test_rust_m9_likelihood_matches_paml(self, lysozyme_data):
+        """
+        Test Rust M9 likelihood matches PAML reference.
+
+        PAML reference (from lysozyme_m9_out.txt):
+        lnL = -899.997270
+        kappa = 5.05056
+        p0 = 0.84895, p_beta = 16.31508, q_beta = 28.11235
+        alpha = 9.04750, beta_gamma = 2.05077
+        ncatG = 10
+        """
+        aln = lysozyme_data["alignment"]
+        pi = lysozyme_data["pi"]
+
+        # PAML's optimized tree for M9
+        tree_str = (
+            "((Hsa_Human: 0.025366, Hla_gibbon: 0.041324): 0.077781, "
+            "((Cgu/Can_colobus: 0.044497, Pne_langur: 0.053862): 0.085140, "
+            "Mmu_rhesus: 0.019255): 0.045871, "
+            "(Ssc_squirrelM: 0.043034, Cja_marmoset: 0.024828): 0.137479);"
+        )
+        tree = Tree.from_newick(tree_str)
+
+        # Create M9 model with PAML's optimized parameters
+        model = M9CodonModel(
+            kappa=5.05056,
+            p0=0.84895,
+            p_beta=16.31508,
+            q_beta=28.11235,
+            alpha=9.04750,
+            beta_gamma=2.05077,
+            ncatG=10,
+            pi=pi
+        )
+
+        # Get Q matrices and proportions
+        Q_matrices = model.get_Q_matrices()
+        proportions = model.get_site_classes()[0]
+
+        # Compute likelihood using Rust backend (parallelized)
+        calc = RustLikelihoodCalculator(aln, tree)
+        lnL_rust = calc.compute_log_likelihood_site_classes(
+            Q_matrices, pi, proportions
+        )
+
+        paml_lnL = -899.997270
+
+        print(f"\nM9 Model (Rust Backend - Parallelized):")
+        print(f"  Rust lnL:     {lnL_rust:.6f}")
+        print(f"  PAML lnL:     {paml_lnL:.6f}")
+        print(f"  Difference:   {abs(lnL_rust - paml_lnL):.6f}")
+        print(f"  Relative:     {abs(lnL_rust - paml_lnL)/abs(paml_lnL)*100:.4f}%")
+
+        # Should match to machine precision
+        np.testing.assert_allclose(
+            lnL_rust,
+            paml_lnL,
+            rtol=1e-5,
+            atol=1e-5,
+            err_msg="Rust M9 likelihood should match PAML exactly"
+        )
+
+    def test_rust_m4_likelihood_matches_paml(self, lysozyme_data):
+        """
+        Test Rust M4 likelihood matches PAML reference.
+
+        PAML reference (from lysozyme_m4_out.txt):
+        lnL = -900.139530
+        kappa = 4.82959
+        proportions = [0.04251, 0.75935, 0.00000, 0.00000, 0.19814]
+        omegas = [0.0, 1/3, 2/3, 1.0, 3.0] (fixed)
+        """
+        aln = lysozyme_data["alignment"]
+        pi = lysozyme_data["pi"]
+
+        # PAML's optimized tree for M4
+        tree_str = (
+            "((Hsa_Human: 0.025116, Hla_gibbon: 0.040656): 0.074120, "
+            "((Cgu/Can_colobus: 0.044275, Pne_langur: 0.052863): 0.082198, "
+            "Mmu_rhesus: 0.019989): 0.045550, "
+            "(Ssc_squirrelM: 0.042315, Cja_marmoset: 0.024402): 0.132002);"
+        )
+        tree = Tree.from_newick(tree_str)
+
+        # Create M4 model with PAML's optimized parameters
+        model = M4CodonModel(
+            kappa=4.82959,
+            proportions=[0.04251, 0.75935, 0.00000, 0.00000, 0.19814],
+            pi=pi
+        )
+
+        # Get Q matrices and proportions
+        Q_matrices = model.get_Q_matrices()
+        proportions = model.get_site_classes()[0]
+
+        # Compute likelihood using Rust backend (parallelized)
+        calc = RustLikelihoodCalculator(aln, tree)
+        lnL_rust = calc.compute_log_likelihood_site_classes(
+            Q_matrices, pi, proportions
+        )
+
+        paml_lnL = -900.139530
+
+        print(f"\nM4 Model (Rust Backend - Parallelized):")
+        print(f"  Rust lnL:     {lnL_rust:.6f}")
+        print(f"  PAML lnL:     {paml_lnL:.6f}")
+        print(f"  Difference:   {abs(lnL_rust - paml_lnL):.6f}")
+        print(f"  Relative:     {abs(lnL_rust - paml_lnL)/abs(paml_lnL)*100:.4f}%")
+
+        # Should match to machine precision
+        np.testing.assert_allclose(
+            lnL_rust,
+            paml_lnL,
+            rtol=1e-5,
+            atol=1e-5,
+            err_msg="Rust M4 likelihood should match PAML exactly"
+        )
+
+    def test_rust_m6_likelihood_matches_paml(self, lysozyme_data):
+        """
+        Test Rust M6 likelihood matches PAML reference.
+
+        PAML reference (from lysozyme_m6_out.txt):
+        lnL = -900.167515
+        kappa = 4.88043
+        p0 = 0.20472, alpha1 = 8.31960, beta1 = 10.86728
+        alpha2 = 0.31083 (beta2 = alpha2)
+        ncatG = 10
+        """
+        aln = lysozyme_data["alignment"]
+        pi = lysozyme_data["pi"]
+
+        # PAML's optimized tree for M6
+        tree_str = (
+            "((Hsa_Human: 0.025319, Hla_gibbon: 0.040604): 0.074894, "
+            "((Cgu/Can_colobus: 0.044277, Pne_langur: 0.052821): 0.082456, "
+            "Mmu_rhesus: 0.019800): 0.045217, "
+            "(Ssc_squirrelM: 0.042294, Cja_marmoset: 0.024371): 0.133164);"
+        )
+        tree = Tree.from_newick(tree_str)
+
+        # Create M6 model with PAML's optimized parameters
+        model = M6CodonModel(
+            kappa=4.88043,
+            p0=0.20472,
+            alpha1=8.31960,
+            beta1=10.86728,
+            alpha2=0.31083,
+            ncatG=10,
+            pi=pi
+        )
+
+        # Get Q matrices and proportions
+        Q_matrices = model.get_Q_matrices()
+        proportions = model.get_site_classes()[0]
+
+        # Compute likelihood using Rust backend (parallelized)
+        calc = RustLikelihoodCalculator(aln, tree)
+        lnL_rust = calc.compute_log_likelihood_site_classes(
+            Q_matrices, pi, proportions
+        )
+
+        paml_lnL = -900.167515
+
+        print(f"\nM6 Model (Rust Backend - Parallelized):")
+        print(f"  Rust lnL:     {lnL_rust:.6f}")
+        print(f"  PAML lnL:     {paml_lnL:.6f}")
+        print(f"  Difference:   {abs(lnL_rust - paml_lnL):.6f}")
+        print(f"  Relative:     {abs(lnL_rust - paml_lnL)/abs(paml_lnL)*100:.4f}%")
+
+        # Should match to machine precision
+        np.testing.assert_allclose(
+            lnL_rust,
+            paml_lnL,
+            rtol=1e-5,
+            atol=1e-5,
+            err_msg="Rust M6 likelihood should match PAML exactly"
         )
 
 

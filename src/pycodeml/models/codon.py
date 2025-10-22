@@ -631,3 +631,419 @@ class M8CodonModel:
 
         # Normalize all Q matrices by the weighted average normalization
         return [Q / weighted_avg_norm for Q in Q_list_unnorm]
+
+
+class M5CodonModel:
+    """
+    M5 (gamma) codon model.
+
+    Gamma distribution for omega (allowing omega > 1), discretized into K categories.
+    This model allows for variation in selective pressure including positive selection.
+
+    Parameters
+    ----------
+    kappa : float
+        Transition/transversion ratio
+    alpha : float
+        Shape parameter of gamma distribution
+    beta : float
+        Rate parameter of gamma distribution
+    ncatG : int
+        Number of site classes for discretizing the gamma distribution
+    pi : np.ndarray, shape (61,), optional
+        Codon frequencies
+    """
+
+    def __init__(
+        self,
+        kappa: float = 2.0,
+        alpha: float = 1.0,
+        beta: float = 1.0,
+        ncatG: int = 10,
+        pi: np.ndarray = None
+    ):
+        """Initialize M5 model."""
+        self.kappa = kappa
+        self.alpha = max(alpha, 0.005)  # Ensure > 0
+        self.beta = max(beta, 0.005)    # Ensure > 0
+        self.ncatG = ncatG
+
+        if pi is None:
+            self.pi = np.ones(61) / 61
+        else:
+            if len(pi) != 61:
+                raise ValueError(f"pi must have length 61, got {len(pi)}")
+            self.pi = pi / pi.sum()
+
+    def get_site_classes(self) -> tuple[list[float], list[float]]:
+        """
+        Get site class proportions and omega values.
+
+        Uses gamma distribution quantiles at median points of K equal bins,
+        following PAML's DiscreteNSsites implementation.
+
+        Returns
+        -------
+        tuple
+            (proportions, omegas) where each is a list
+        """
+        from scipy.stats import gamma
+
+        K = self.ncatG
+        proportions = [1.0 / K] * K
+        omegas = []
+
+        # Use median method: quantile at center of each bin
+        # Gamma distribution with shape=alpha, scale=1/beta
+        for j in range(K):
+            p = (j * 2.0 + 1) / (2.0 * K)
+            omega = gamma.ppf(p, self.alpha, scale=1.0/self.beta)
+            omegas.append(omega)
+
+        return proportions, omegas
+
+    def get_Q_matrices(self) -> list[np.ndarray]:
+        """
+        Get Q matrices for each site class.
+
+        Following PAML's approach, all Q matrices are normalized by the same
+        weighted-average normalization factor.
+        """
+        proportions, omegas = self.get_site_classes()
+
+        # Build each Q matrix with its own omega, WITHOUT normalization
+        Q_list_unnorm = [build_codon_Q_matrix(self.kappa, omega, self.pi, normalization_factor=1.0)
+                         for omega in omegas]
+
+        # Compute normalization factors for each UNNORMALIZED Q matrix
+        norm_factors = [-np.dot(self.pi, np.diag(Q)) for Q in Q_list_unnorm]
+
+        # Compute weighted average normalization (PAML's Qfactor_NS)
+        weighted_avg_norm = sum(p * norm for p, norm in zip(proportions, norm_factors))
+
+        # Normalize all Q matrices by the weighted average normalization
+        return [Q / weighted_avg_norm for Q in Q_list_unnorm]
+
+
+class M9CodonModel:
+    """
+    M9 (beta & gamma) codon model.
+
+    Mixture of beta distribution for omega (0 < omega < 1) with proportion p0,
+    plus a gamma distribution for omega (omega > 0) with proportion (1 - p0).
+
+    This is a more flexible version of M8, allowing the positive selection
+    class to follow a gamma distribution rather than a single omega value.
+
+    Parameters
+    ----------
+    kappa : float
+        Transition/transversion ratio
+    p0 : float
+        Proportion of sites from beta distribution
+    p_beta : float
+        First shape parameter of beta distribution
+    q_beta : float
+        Second shape parameter of beta distribution
+    alpha : float
+        Shape parameter of gamma distribution
+    beta_gamma : float
+        Rate parameter of gamma distribution
+    ncatG : int
+        Number of site classes for discretizing each distribution
+    pi : np.ndarray, shape (61,), optional
+        Codon frequencies
+    """
+
+    def __init__(
+        self,
+        kappa: float = 2.0,
+        p0: float = 0.5,
+        p_beta: float = 0.5,
+        q_beta: float = 0.5,
+        alpha: float = 1.0,
+        beta_gamma: float = 1.0,
+        ncatG: int = 10,
+        pi: np.ndarray = None
+    ):
+        """Initialize M9 model."""
+        self.kappa = kappa
+        self.p0 = np.clip(p0, 0.001, 0.999)
+        self.p_beta = max(p_beta, 0.005)
+        self.q_beta = max(q_beta, 0.005)
+        self.alpha = max(alpha, 0.005)
+        self.beta_gamma = max(beta_gamma, 0.005)
+        self.ncatG = ncatG
+
+        if pi is None:
+            self.pi = np.ones(61) / 61
+        else:
+            if len(pi) != 61:
+                raise ValueError(f"pi must have length 61, got {len(pi)}")
+            self.pi = pi / pi.sum()
+
+    def get_site_classes(self) -> tuple[list[float], list[float]]:
+        """
+        Get site class proportions and omega values.
+
+        Following PAML, this discretizes the MIXTURE distribution (not each
+        component separately) into K categories using the median method.
+
+        Returns
+        -------
+        tuple
+            (proportions, omegas) where each is a list
+        """
+        from scipy.stats import beta, gamma
+        from scipy.optimize import brentq
+
+        K = self.ncatG
+        proportions = [1.0 / K] * K
+        omegas = []
+
+        # Define the mixture CDF
+        def mixture_cdf(x):
+            """Mixture CDF: p0 * Beta + (1-p0) * Gamma"""
+            beta_cdf = beta.cdf(x, self.p_beta, self.q_beta)
+            gamma_cdf = gamma.cdf(x, self.alpha, scale=1.0/self.beta_gamma)
+            return self.p0 * beta_cdf + (1.0 - self.p0) * gamma_cdf
+
+        # Discretize using median method: find quantiles of the mixture
+        for j in range(K):
+            p = (j * 2.0 + 1) / (2.0 * K)
+
+            # Find omega such that mixture_cdf(omega) = p
+            # Search in a reasonable range
+            try:
+                omega = brentq(lambda x: mixture_cdf(x) - p, 0.0001, 99.0)
+            except ValueError:
+                # If search fails, use a fallback
+                omega = p * 10  # Simple fallback
+
+            omegas.append(omega)
+
+        return proportions, omegas
+
+    def get_Q_matrices(self) -> list[np.ndarray]:
+        """
+        Get Q matrices for each site class.
+
+        Following PAML's approach, all Q matrices are normalized by the same
+        weighted-average normalization factor.
+        """
+        proportions, omegas = self.get_site_classes()
+
+        # Build each Q matrix with its own omega, WITHOUT normalization
+        Q_list_unnorm = [build_codon_Q_matrix(self.kappa, omega, self.pi, normalization_factor=1.0)
+                         for omega in omegas]
+
+        # Compute normalization factors for each UNNORMALIZED Q matrix
+        norm_factors = [-np.dot(self.pi, np.diag(Q)) for Q in Q_list_unnorm]
+
+        # Compute weighted average normalization (PAML's Qfactor_NS)
+        weighted_avg_norm = sum(p * norm for p, norm in zip(proportions, norm_factors))
+
+        # Normalize all Q matrices by the weighted average normalization
+        return [Q / weighted_avg_norm for Q in Q_list_unnorm]
+
+
+class M4CodonModel:
+    """
+    M4 (freqs) codon model.
+
+    Discrete model with 5 fixed omega values and variable proportions.
+    Omega values are fixed at: {0, 1/3, 2/3, 1, 3}
+    Proportions are estimated parameters.
+
+    This is a variant of M3 with predefined omega values to test specific
+    selection scenarios.
+
+    Parameters
+    ----------
+    kappa : float
+        Transition/transversion ratio
+    proportions : list[float], length 5
+        Proportions for each of the 5 site classes (must sum to 1)
+    pi : np.ndarray, shape (61,), optional
+        Codon frequencies
+    """
+
+    def __init__(
+        self,
+        kappa: float = 2.0,
+        proportions: list[float] = None,
+        pi: np.ndarray = None
+    ):
+        """Initialize M4 model."""
+        self.kappa = kappa
+        
+        # Fixed omega values for M4 (from PAML)
+        self.omegas = [0.0, 1.0/3.0, 2.0/3.0, 1.0, 3.0]
+        
+        # Default proportions (equal)
+        if proportions is None:
+            self.proportions = [0.2, 0.2, 0.2, 0.2, 0.2]
+        else:
+            if len(proportions) != 5:
+                raise ValueError(f"M4 requires exactly 5 proportions, got {len(proportions)}")
+            # Normalize proportions
+            proportions = np.array(proportions)
+            self.proportions = (proportions / proportions.sum()).tolist()
+        
+        if pi is None:
+            self.pi = np.ones(61) / 61
+        else:
+            if len(pi) != 61:
+                raise ValueError(f"pi must have length 61, got {len(pi)}")
+            self.pi = pi / pi.sum()
+
+    def get_site_classes(self) -> tuple[list[float], list[float]]:
+        """
+        Get site class proportions and omega values.
+
+        Returns
+        -------
+        tuple
+            (proportions, omegas) where each is a list
+        """
+        return self.proportions, self.omegas
+
+    def get_Q_matrices(self) -> list[np.ndarray]:
+        """
+        Get Q matrices for each site class.
+
+        Following PAML's approach, all Q matrices are normalized by the same
+        weighted-average normalization factor.
+        """
+        proportions, omegas = self.get_site_classes()
+
+        # Build each Q matrix with its own omega, WITHOUT normalization
+        Q_list_unnorm = [build_codon_Q_matrix(self.kappa, omega, self.pi, normalization_factor=1.0)
+                         for omega in omegas]
+
+        # Compute normalization factors for each UNNORMALIZED Q matrix
+        norm_factors = [-np.dot(self.pi, np.diag(Q)) for Q in Q_list_unnorm]
+
+        # Compute weighted average normalization (PAML's Qfactor_NS)
+        weighted_avg_norm = sum(p * norm for p, norm in zip(proportions, norm_factors))
+
+        # Normalize all Q matrices by the weighted average normalization
+        return [Q / weighted_avg_norm for Q in Q_list_unnorm]
+
+
+class M6CodonModel:
+    """
+    M6 (2gamma) codon model.
+
+    Mixture of two gamma distributions for omega, discretized into K categories.
+    The second gamma has a constraint: shape = rate (alpha2 = beta2).
+
+    This model allows for more flexibility than a single gamma distribution.
+
+    Parameters
+    ----------
+    kappa : float
+        Transition/transversion ratio
+    p0 : float
+        Proportion of sites from first gamma distribution
+    alpha1 : float
+        Shape parameter of first gamma distribution
+    beta1 : float
+        Rate parameter of first gamma distribution
+    alpha2 : float
+        Shape (and rate) parameter of second gamma distribution (alpha2 = beta2)
+    ncatG : int
+        Number of site classes for discretizing the mixture distribution
+    pi : np.ndarray, shape (61,), optional
+        Codon frequencies
+    """
+
+    def __init__(
+        self,
+        kappa: float = 2.0,
+        p0: float = 0.5,
+        alpha1: float = 1.0,
+        beta1: float = 1.0,
+        alpha2: float = 1.0,
+        ncatG: int = 10,
+        pi: np.ndarray = None
+    ):
+        """Initialize M6 model."""
+        self.kappa = kappa
+        self.p0 = np.clip(p0, 0.001, 0.999)
+        self.alpha1 = max(alpha1, 0.005)
+        self.beta1 = max(beta1, 0.005)
+        self.alpha2 = max(alpha2, 0.005)  # alpha2 = beta2
+        self.ncatG = ncatG
+
+        if pi is None:
+            self.pi = np.ones(61) / 61
+        else:
+            if len(pi) != 61:
+                raise ValueError(f"pi must have length 61, got {len(pi)}")
+            self.pi = pi / pi.sum()
+
+    def get_site_classes(self) -> tuple[list[float], list[float]]:
+        """
+        Get site class proportions and omega values.
+
+        Following PAML, this discretizes the MIXTURE distribution into K categories
+        using the median method.
+
+        Returns
+        -------
+        tuple
+            (proportions, omegas) where each is a list
+        """
+        from scipy.stats import gamma
+        from scipy.optimize import brentq
+
+        K = self.ncatG
+        proportions = [1.0 / K] * K
+        omegas = []
+
+        # Define the mixture CDF
+        def mixture_cdf(x):
+            """Mixture CDF: p0 * Gamma1 + (1-p0) * Gamma2"""
+            gamma1_cdf = gamma.cdf(x, self.alpha1, scale=1.0/self.beta1)
+            # Second gamma has shape = rate (alpha2 = beta2)
+            gamma2_cdf = gamma.cdf(x, self.alpha2, scale=1.0/self.alpha2)
+            return self.p0 * gamma1_cdf + (1.0 - self.p0) * gamma2_cdf
+
+        # Discretize using median method: find quantiles of the mixture
+        for j in range(K):
+            p = (j * 2.0 + 1) / (2.0 * K)
+
+            # Find omega such that mixture_cdf(omega) = p
+            # Search in a reasonable range
+            try:
+                omega = brentq(lambda x: mixture_cdf(x) - p, 0.0001, 99.0)
+            except ValueError:
+                # If search fails, use a fallback
+                omega = p * 10  # Simple fallback
+
+            omegas.append(omega)
+
+        return proportions, omegas
+
+    def get_Q_matrices(self) -> list[np.ndarray]:
+        """
+        Get Q matrices for each site class.
+
+        Following PAML's approach, all Q matrices are normalized by the same
+        weighted-average normalization factor.
+        """
+        proportions, omegas = self.get_site_classes()
+
+        # Build each Q matrix with its own omega, WITHOUT normalization
+        Q_list_unnorm = [build_codon_Q_matrix(self.kappa, omega, self.pi, normalization_factor=1.0)
+                         for omega in omegas]
+
+        # Compute normalization factors for each UNNORMALIZED Q matrix
+        norm_factors = [-np.dot(self.pi, np.diag(Q)) for Q in Q_list_unnorm]
+
+        # Compute weighted average normalization (PAML's Qfactor_NS)
+        weighted_avg_norm = sum(p * norm for p, norm in zip(proportions, norm_factors))
+
+        # Normalize all Q matrices by the weighted average normalization
+        return [Q / weighted_avg_norm for Q in Q_list_unnorm]
