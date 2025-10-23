@@ -10,6 +10,7 @@ from crabml.models.codon import (
     M8aCodonModel,
     compute_codon_frequencies_f3x4,
 )
+from crabml.models.codon_branch import CodonBranchModel
 
 __all__ = [
     "M0CodonModel",
@@ -19,5 +20,6 @@ __all__ = [
     "M7CodonModel",
     "M8CodonModel",
     "M8aCodonModel",
+    "CodonBranchModel",
     "compute_codon_frequencies_f3x4",
 ]

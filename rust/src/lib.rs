@@ -342,6 +342,91 @@ fn compute_branch_site_log_likelihood(
     Ok(result)
 }
 
+/// Compute branch model log-likelihood
+///
+/// Branch models allow different omega values on different branches.
+/// Unlike branch-site models, there are no site classes - just different
+/// omega per branch (or per branch group in multi-ratio model).
+///
+/// Args:
+///     sequences: Encoded sequences (n_leaves × n_sites)
+///     parent_indices: Parent index for each node (-1 for root)
+///     leaf_node_ids: Node IDs that are leaves
+///     Q_matrices: Q matrix for each branch (n_branches × 61 × 61)
+///     branch_lengths: Branch length for each branch
+///     pi: Stationary frequencies (61,)
+///
+/// Returns:
+///     Log-likelihood value
+#[pyfunction]
+#[pyo3(signature = (sequences, parent_indices, leaf_node_ids, Q_matrices, branch_lengths, pi))]
+fn compute_log_likelihood_branch(
+    py: Python<'_>,
+    sequences: PyReadonlyArray2<i32>,
+    parent_indices: Vec<i64>,
+    leaf_node_ids: Vec<usize>,
+    Q_matrices: Vec<PyReadonlyArray2<f64>>,
+    branch_lengths: Vec<f64>,
+    pi: PyReadonlyArray1<f64>,
+) -> PyResult<f64> {
+    let seq_array = sequences.as_array();
+    let pi_array = pi.as_array();
+
+    let n_branches = Q_matrices.len();
+    if n_branches != branch_lengths.len() {
+        return Err(PyValueError::new_err(format!(
+            "Q_matrices length ({}) must match branch_lengths length ({})",
+            n_branches,
+            branch_lengths.len()
+        )));
+    }
+
+    // Cache all Q matrices (one per branch)
+    let cached_qs: Vec<CachedQMatrix> = Q_matrices.iter()
+        .map(|q| {
+            let q_array = q.as_array();
+            CachedQMatrix::new(q_array, pi_array)
+                .map_err(|e| PyValueError::new_err(e))
+        })
+        .collect::<PyResult<Vec<_>>>()?;
+
+    // Build tree structure from parent indices
+    let mut tree_structure = Vec::with_capacity(parent_indices.len());
+    for (node_id, &parent_idx) in parent_indices.iter().enumerate() {
+        let parent = if parent_idx < 0 {
+            None
+        } else {
+            Some(parent_idx as usize)
+        };
+        tree_structure.push((node_id, parent));
+    }
+
+    // Create tree (dummy leaf names)
+    let leaf_names: Vec<String> = (0..leaf_node_ids.len())
+        .map(|i| format!("seq{}", i))
+        .collect();
+
+    let tree = Tree::from_structure(tree_structure, branch_lengths.clone(), leaf_names, leaf_node_ids)
+        .map_err(|e| PyValueError::new_err(e))?;
+
+    // Create likelihood calculator
+    let n_sites = seq_array.ncols();
+    let n_states = pi_array.len();
+    let mut calc = LikelihoodCalculator::new(tree, n_sites, n_states);
+
+    // Compute likelihood using per-branch Q matrices
+    // For branch models, we compute likelihood once per site (no site classes)
+    let result = py.allow_threads(|| {
+        calc.compute_log_likelihood_branch_model(
+            &cached_qs,
+            pi_array,
+            seq_array,
+        )
+    });
+
+    Ok(result)
+}
+
 /// crabML Rust Backend Module
 ///
 /// High-performance phylogenetic likelihood calculations.
@@ -352,5 +437,6 @@ fn crabml_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(compute_site_class_log_likelihood, m)?)?;
     m.add_function(wrap_pyfunction!(compute_site_log_likelihoods_by_class, m)?)?;
     m.add_function(wrap_pyfunction!(compute_branch_site_log_likelihood, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_log_likelihood_branch, m)?)?;
     Ok(())
 }

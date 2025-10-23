@@ -2,5 +2,12 @@
 
 from crabml.optimize.optimizer import M0Optimizer, M1aOptimizer, M2aOptimizer
 from crabml.optimize.branch_site import BranchSiteModelAOptimizer
+from crabml.optimize.branch import BranchModelOptimizer
 
-__all__ = ["M0Optimizer", "M1aOptimizer", "M2aOptimizer", "BranchSiteModelAOptimizer"]
+__all__ = [
+    "M0Optimizer",
+    "M1aOptimizer",
+    "M2aOptimizer",
+    "BranchSiteModelAOptimizer",
+    "BranchModelOptimizer",
+]

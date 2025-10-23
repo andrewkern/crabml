@@ -368,6 +368,91 @@ impl LikelihoodCalculator {
 
         max_log + sum.ln()
     }
+
+    /// Compute log-likelihood for branch models (different Q per branch)
+    ///
+    /// Branch models allow different omega values on different branches.
+    /// This is similar to the single Q case, but we use a different P matrix
+    /// for each branch based on its specific Q matrix.
+    ///
+    /// Args:
+    ///     cached_qs: Cached Q matrices (one per branch)
+    ///     pi: Stationary frequencies
+    ///     sequences: Encoded sequences [n_leaves, n_sites]
+    ///
+    /// Returns:
+    ///     Log-likelihood
+    pub fn compute_log_likelihood_branch_model(
+        &mut self,
+        cached_qs: &[CachedQMatrix],
+        pi: ArrayView1<f64>,
+        sequences: ArrayView2<i32>,
+    ) -> f64 {
+        let n_branches = self.tree.n_nodes;  // Each node has a branch to parent
+        if cached_qs.len() != n_branches {
+            panic!(
+                "Number of Q matrices ({}) must equal number of nodes ({})",
+                cached_qs.len(),
+                n_branches
+            );
+        }
+
+        // Compute P(t) for each branch using its specific Q matrix
+        let mut p_matrices = Vec::with_capacity(n_branches);
+        for (node_idx, q) in cached_qs.iter().enumerate() {
+            let t = self.tree.branch_lengths[node_idx];
+            let p = q.expm(t);
+            p_matrices.push(p);
+        }
+
+        // Initialize leaf likelihoods
+        let leaf_set: std::collections::HashSet<usize> =
+            self.tree.leaf_node_ids.iter().copied().collect();
+
+        for (leaf_idx, &node_idx) in self.tree.leaf_node_ids.iter().enumerate() {
+            for site in 0..self.n_sites {
+                let obs_state = sequences[[leaf_idx, site]];
+
+                if obs_state >= 0 && (obs_state as usize) < self.n_states {
+                    // Observed state: likelihood = 1 for that state, 0 for others
+                    self.workspace[[node_idx, site, obs_state as usize]] = 1.0;
+                } else {
+                    // Missing data: all states equally likely
+                    self.workspace.slice_mut(s![node_idx, site, ..]).fill(1.0);
+                }
+            }
+        }
+
+        // Post-order traversal: compute internal node likelihoods
+        let postorder = self.tree.postorder.clone();
+
+        for &node_idx in &postorder {
+            if !leaf_set.contains(&node_idx) {
+                // Internal node - use branch-specific P matrices
+                self.compute_internal_node(node_idx, &p_matrices);
+            }
+        }
+
+        // Root likelihood: sum over all states weighted by pi
+        let root_idx = *self.tree.postorder.last().unwrap();
+        let root_likelihoods = self.workspace.slice(s![root_idx, .., ..]);
+
+        // Site likelihoods: sum_i (L_root[site, i] * pi[i])
+        let mut log_likelihood = 0.0;
+        for site in 0..self.n_sites {
+            let site_lnl: f64 = root_likelihoods.slice(s![site, ..])
+                .iter()
+                .zip(pi.iter())
+                .map(|(&l, &p)| l * p)
+                .sum();
+
+            // Clamp to minimum value like PAML (prevents log(0) = -inf)
+            let clamped = site_lnl.max(1e-300);
+            log_likelihood += clamped.ln();
+        }
+
+        log_likelihood
+    }
 }
 
 #[cfg(test)]
