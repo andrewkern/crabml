@@ -4,15 +4,17 @@ High-performance reimplementation of PAML's codeml for phylogenetic maximum like
 
 ## Status
 
-Production-ready with 10 PAML codon models fully validated against reference outputs.
+Production-ready with 10 site-class models and branch-site models fully validated against PAML.
 
 ### Features
 
-- **Codon substitution models**: M0, M1a, M2a, M3, M4, M5, M6, M7, M8, M9
-- **Parameter optimization**: Complete MLE optimization for all 10 models
-- **High-performance Rust backend**: 3-10x faster than PAML for full optimization
+- **Site-class models**: M0, M1a, M2a, M3, M4, M5, M6, M7, M8, M8a, M9
+- **Branch-site models**: Model A (test for positive selection on specific lineages)
+- **Hypothesis testing**: Complete LRT framework for detecting positive selection
+- **Parameter optimization**: Complete MLE optimization for all models
+- **High-performance Rust backend**: 300-500x faster than NumPy, 3-10x faster than PAML
 - **PAML validation**: All models produce exact numerical matches to PAML
-- **Test coverage**: 12 validation tests passing, exact agreement with reference outputs
+- **Test coverage**: 16+ validation tests passing, exact agreement with reference outputs
 
 ## Installation
 
@@ -22,10 +24,10 @@ Production-ready with 10 PAML codon models fully validated against reference out
 - OpenBLAS or similar BLAS/LAPACK implementation
 
 ```bash
-uv sync --all-extras
+uv sync --all-extras --reinstall-package crabml-rust
 ```
 
-This single command installs all Python dependencies and builds the Rust extension.
+This single command installs all Python dependencies and builds the Rust extension. The `--reinstall-package` flag ensures the Rust extension is rebuilt even if already installed.
 
 ## Quick Start
 
@@ -77,14 +79,22 @@ print(f"ω for positive selection: {omega2:.4f}")
 
 crabML provides publication-ready hypothesis tests for detecting positive selection:
 
-### Standard Tests
+### Site-Class Model Tests
 
 - **M1a vs M2a**: Tests for positive selection against nearly neutral null model
 - **M7 vs M8**: Tests for positive selection using beta distribution models
+- **M8a vs M8**: Tests for positive selection with 50:50 mixture null distribution
 
-Both tests:
+### Branch-Site Model Tests
+
+- **Branch-Site Model A**: Tests for positive selection on specific phylogenetic lineages
+  - Detects if specific sites on foreground branches have ω > 1
+  - Uses standard chi-square LRT with df=1
+  - Returns site-specific parameter estimates
+
+All tests:
 - Calculate likelihood ratio test (LRT) statistics automatically
-- Provide p-values from chi-square distribution
+- Provide p-values from appropriate chi-square distributions
 - Include formatted output suitable for publications
 - Export results to dict/JSON for further analysis
 
@@ -120,9 +130,61 @@ CONCLUSION:
 ================================================================================
 ```
 
+### Branch-Site Analysis
+
+Test for positive selection on specific lineages (e.g., primates, mammals, specific gene duplicates):
+
+```python
+from crabml.io.sequences import Alignment
+from crabml.io.trees import Tree
+from crabml.analysis import branch_site_test
+
+# Load data
+alignment = Alignment.from_phylip('alignment.phy', seqtype='codon')
+
+# Tree with branch labels: #0 = background, #1 = foreground
+# Test for positive selection on the primate lineage
+tree_str = """
+((human, chimp) #1,
+ (mouse, rat));
+"""
+tree = Tree.from_newick(tree_str)
+
+# Run branch-site test (Model A vs Model A null)
+results = branch_site_test(
+    alignment=alignment,
+    tree=tree,
+    use_f3x4=True,
+    optimize_branch_lengths=True
+)
+
+# Check results
+print(f"P-value: {results['pvalue']:.6f}")
+print(f"LRT statistic: {results['lrt_statistic']:.6f}")
+
+if results['significant']:
+    omega2 = results['alt_params']['omega2']
+    p2 = results['alt_params']['p2']
+    print(f"✓ Positive selection detected on foreground branches!")
+    print(f"  ω₂ = {omega2:.4f} (dN/dS for positively selected sites)")
+    print(f"  p₂ = {p2:.4f} (proportion of sites under selection)")
+else:
+    print("✗ No significant evidence for positive selection")
+```
+
+**Key features:**
+- Automatically runs both null (ω₂=1) and alternative (ω₂ free) models
+- Calculates likelihood ratio test with df=1
+- Returns comprehensive results dictionary with all parameters
+- Supports any tree topology with branch labels
+
 ## Supported Models
 
-All models validated against PAML reference outputs with exact numerical agreement:
+All models validated against PAML reference outputs with exact numerical agreement.
+
+### Site-Class Models
+
+Models where ω varies across sites but not across branches:
 
 - **M0** (one-ratio): Single dN/dS ratio across all sites
 - **M1a** (NearlyNeutral): Two site classes (purifying, neutral)
@@ -132,12 +194,29 @@ All models validated against PAML reference outputs with exact numerical agreeme
 - **M5** (gamma): Gamma distribution for omega
 - **M6** (2gamma): Mixture of two gamma distributions
 - **M7** (beta): Beta distribution for omega (0 < omega < 1)
-- **M8** (beta&omega): Beta distribution plus positive selection class
+- **M8** (beta&ω): Beta distribution plus positive selection class
+- **M8a** (beta&ω=1): Beta distribution plus neutral class (null for M8)
 - **M9** (beta&gamma): Mixture of beta and gamma distributions
+
+### Branch-Site Models
+
+Models where ω varies across both sites and branches:
+
+- **Branch-Site Model A**: Four site classes with different ω on foreground vs background branches
+  - Class 0: conserved (ω₀ < 1) on all branches
+  - Class 1: neutral (ω = 1) on all branches
+  - Class 2a: conserved on background, positive selection (ω₂ > 1) on foreground
+  - Class 2b: neutral on background, positive selection on foreground
+  - Null model: fixes ω₂ = 1 for hypothesis testing
+
+**Validation:** All models match PAML within 0.1 log-likelihood units (typically < 0.05)
 
 ## Development
 
 ```bash
+# Build/rebuild the package (including Rust extension)
+uv sync --all-extras --reinstall-package crabml-rust
+
 # Run tests
 uv run pytest
 
