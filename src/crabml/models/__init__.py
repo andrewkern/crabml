@@ -1,4 +1,15 @@
-"""Evolutionary models (codon, amino acid, nucleotide)."""
+"""
+Molecular evolution models for sequence analysis.
+
+This module provides substitution models for phylogenetic likelihood calculation:
+
+- **Codon models**: Site-class models (M0-M9) with varying ω across sites
+- **Branch models**: Models with varying ω across phylogenetic lineages
+- **Branch-site models**: Models combining site and branch variation
+
+Each model class computes transition probability matrices and handles
+rate variation across sites and/or branches.
+"""
 
 from crabml.models.codon import (
     M0CodonModel,

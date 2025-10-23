@@ -1,0 +1,37 @@
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# Required
+version: 2
+
+# Set the version of Python and other tools you might need
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+  jobs:
+    pre_install:
+      # Install Rust toolchain
+      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - source $HOME/.cargo/env
+    post_install:
+      # Build Rust extension
+      - uv sync --group docs
+
+# Build documentation in the docs/ directory with Sphinx
+sphinx:
+  configuration: docs/conf.py
+  fail_on_warning: false
+
+# Optionally build formats (PDF, ePub, htmlzip)
+formats:
+  - pdf
+  - epub
+
+# Python requirements
+python:
+  install:
+    - method: pip
+      path: .
+      extra_requirements:
+        - dev
