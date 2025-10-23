@@ -11,6 +11,7 @@ from .positive_selection import (
     m7_vs_m8,
     m8a_vs_m8,
 )
+from .branch_site import branch_site_test
 from .results import LRTResult, compare_results
 from .beb import BEBCalculator, BEBResult
 from .beb_visualizer import BEBVisualizer
@@ -20,6 +21,7 @@ __all__ = [
     "m1a_vs_m2a",
     "m7_vs_m8",
     "m8a_vs_m8",
+    "branch_site_test",
     "LRTResult",
     "compare_results",
     "BEBCalculator",

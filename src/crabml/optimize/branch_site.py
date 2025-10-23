@@ -34,7 +34,8 @@ class BranchSiteModelAOptimizer:
         alignment: Alignment,
         tree: Tree,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True
+        optimize_branch_lengths: bool = True,
+        fix_omega: bool = False
     ):
         """
         Initialize Branch-Site Model A optimizer.
@@ -49,11 +50,14 @@ class BranchSiteModelAOptimizer:
             Use F3X4 codon frequencies (True) or uniform (False)
         optimize_branch_lengths : bool
             Optimize individual branch lengths (True) or use global scaling (False)
+        fix_omega : bool
+            Fix omega2=1 for null model (True) or allow omega2 to vary (False)
         """
         self.alignment = alignment
         self.tree = tree
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
+        self.fix_omega = fix_omega
 
         # Validate tree has branch labels
         tree.validate_branch_site_labels()
@@ -86,7 +90,7 @@ class BranchSiteModelAOptimizer:
         self.branch_labels_u8 = [int(x) for x in self.branch_labels_renumbered]
 
         # Create model
-        self.model = BranchSiteModelA(self.pi, self.branch_labels)
+        self.model = BranchSiteModelA(self.pi, self.branch_labels, fix_omega=fix_omega)
 
         # Store optimization history
         self.history = []
@@ -98,10 +102,10 @@ class BranchSiteModelAOptimizer:
         Parameters
         ----------
         params : np.ndarray
-            If optimize_branch_lengths is True:
-                [log(kappa), log(omega0), log(omega2), logit(p0), logit(p1), log(branch1), ...]
-            If optimize_branch_lengths is False:
-                [log(kappa), log(omega0), log(omega2), logit(p0), logit(p1), log(branch_scale)]
+            If fix_omega is False (Model A):
+                [log(kappa), log(omega0), log(omega2), logit(p0), logit(p1), log(branches)...]
+            If fix_omega is True (Model A null):
+                [log(kappa), log(omega0), logit(p0), logit(p1), log(branches)...]
 
         Returns
         -------
@@ -111,12 +115,19 @@ class BranchSiteModelAOptimizer:
         # Extract parameters
         kappa = np.exp(params[0])
         omega0 = np.exp(params[1])
-        omega2 = np.exp(params[2])
+
+        # Handle omega2 based on fix_omega
+        if self.fix_omega:
+            omega2 = 1.0  # Null model: fix omega2 = 1
+            param_offset = 2  # Next parameter is at index 2
+        else:
+            omega2 = np.exp(params[2])  # Alternative model: omega2 free
+            param_offset = 3  # Next parameter is at index 3
 
         # Use sigmoid for p0 and p1 to keep in [0,1]
         # Then enforce p0 + p1 < 1
-        p0_raw = 1.0 / (1.0 + np.exp(-params[3]))
-        p1_raw = 1.0 / (1.0 + np.exp(-params[4]))
+        p0_raw = 1.0 / (1.0 + np.exp(-params[param_offset]))
+        p1_raw = 1.0 / (1.0 + np.exp(-params[param_offset + 1]))
 
         # Rescale to ensure p0 + p1 < 1
         total = p0_raw + p1_raw
@@ -128,12 +139,13 @@ class BranchSiteModelAOptimizer:
             p1 = p1_raw
 
         # Update branch lengths
+        branch_param_start = param_offset + 2
         if self.optimize_branch_lengths:
             for i, node in enumerate(self.branch_nodes):
-                node.branch_length = np.exp(params[5 + i])
+                node.branch_length = np.exp(params[branch_param_start + i])
         else:
             # Scale all branch lengths
-            scale = np.exp(params[5])
+            scale = np.exp(params[branch_param_start])
             for node in self.branch_nodes:
                 node.branch_length *= scale
 
@@ -230,60 +242,100 @@ class BranchSiteModelAOptimizer:
         # Initial parameters (in log/logit space)
         if self.optimize_branch_lengths:
             init_branch_lengths = [node.branch_length for node in self.branch_nodes]
-            init_params = np.array(
-                [np.log(init_kappa),
-                 np.log(init_omega0),
-                 np.log(init_omega2),
-                 np.log(init_p0 / (1 - init_p0)),  # Logit transform
-                 np.log(init_p1 / (1 - init_p1))] +
-                [np.log(max(bl, 0.001)) for bl in init_branch_lengths]
-            )
 
-            # Bounds: kappa [0.1, 100], omega0 [0.001, 0.999], omega2 [1.001, 20],
-            #         p0, p1 logits [-10, 10], branches [0.0001, 50]
-            bounds = (
-                [(np.log(0.1), np.log(100)),        # kappa
-                 (np.log(0.001), np.log(0.999)),    # omega0
-                 (np.log(1.001), np.log(20)),       # omega2
-                 (-10, 10), (-10, 10)] +            # p0, p1 logits
-                [(np.log(0.0001), np.log(50))] * self.n_branches
-            )
+            if self.fix_omega:
+                # Null model: no omega2 parameter
+                init_params = np.array(
+                    [np.log(init_kappa),
+                     np.log(init_omega0),
+                     np.log(init_p0 / (1 - init_p0)),  # Logit transform
+                     np.log(init_p1 / (1 - init_p1))] +
+                    [np.log(max(bl, 0.001)) for bl in init_branch_lengths]
+                )
+                bounds = (
+                    [(np.log(0.1), np.log(100)),        # kappa
+                     (np.log(0.001), np.log(0.999)),    # omega0
+                     (-10, 10), (-10, 10)] +            # p0, p1 logits
+                    [(np.log(0.0001), np.log(50))] * self.n_branches
+                )
+            else:
+                # Alternative model: omega2 is free
+                init_params = np.array(
+                    [np.log(init_kappa),
+                     np.log(init_omega0),
+                     np.log(init_omega2),
+                     np.log(init_p0 / (1 - init_p0)),  # Logit transform
+                     np.log(init_p1 / (1 - init_p1))] +
+                    [np.log(max(bl, 0.001)) for bl in init_branch_lengths]
+                )
+                bounds = (
+                    [(np.log(0.1), np.log(100)),        # kappa
+                     (np.log(0.001), np.log(0.999)),    # omega0
+                     (np.log(1.001), np.log(20)),       # omega2
+                     (-10, 10), (-10, 10)] +            # p0, p1 logits
+                    [(np.log(0.0001), np.log(50))] * self.n_branches
+                )
 
             n_foreground = sum(1 for x in self.branch_labels if x == 1)
             n_background = sum(1 for x in self.branch_labels if x == 0)
 
-            print(f"Starting Branch-Site Model A optimization")
+            model_name = "Branch-Site Model A (null)" if self.fix_omega else "Branch-Site Model A"
+            print(f"Starting {model_name} optimization")
             print(f"Method: {method}, max iterations: {maxiter}")
             print(f"Tree: {n_background} background branches, {n_foreground} foreground branches")
             print(f"Initial parameters:")
             print(f"  kappa  = {init_kappa:.4f}")
             print(f"  omega0 = {init_omega0:.4f} (purifying)")
-            print(f"  omega2 = {init_omega2:.4f} (positive selection)")
+            if self.fix_omega:
+                print(f"  omega2 = 1.0000 (FIXED - null model)")
+            else:
+                print(f"  omega2 = {init_omega2:.4f} (positive selection)")
             print(f"  p0     = {init_p0:.4f}")
             print(f"  p1     = {init_p1:.4f}")
             print(f"  p2     = {1 - init_p0 - init_p1:.4f}")
             print(f"Optimizing {self.n_branches} branch lengths")
         else:
-            init_params = np.array([
-                np.log(init_kappa),
-                np.log(init_omega0),
-                np.log(init_omega2),
-                np.log(init_p0 / (1 - init_p0)),
-                np.log(init_p1 / (1 - init_p1)),
-                np.log(1.0)  # Initial branch scale
-            ])
+            if self.fix_omega:
+                # Null model: no omega2
+                init_params = np.array([
+                    np.log(init_kappa),
+                    np.log(init_omega0),
+                    np.log(init_p0 / (1 - init_p0)),
+                    np.log(init_p1 / (1 - init_p1)),
+                    np.log(1.0)  # Initial branch scale
+                ])
+                bounds = [
+                    (np.log(0.1), np.log(100)),       # kappa
+                    (np.log(0.001), np.log(0.999)),   # omega0
+                    (-10, 10), (-10, 10),             # p0, p1 logits
+                    (np.log(0.01), np.log(100))       # branch_scale
+                ]
+            else:
+                # Alternative model: omega2 free
+                init_params = np.array([
+                    np.log(init_kappa),
+                    np.log(init_omega0),
+                    np.log(init_omega2),
+                    np.log(init_p0 / (1 - init_p0)),
+                    np.log(init_p1 / (1 - init_p1)),
+                    np.log(1.0)  # Initial branch scale
+                ])
+                bounds = [
+                    (np.log(0.1), np.log(100)),       # kappa
+                    (np.log(0.001), np.log(0.999)),   # omega0
+                    (np.log(1.001), np.log(20)),      # omega2
+                    (-10, 10), (-10, 10),             # p0, p1 logits
+                    (np.log(0.01), np.log(100))       # branch_scale
+                ]
 
-            bounds = [
-                (np.log(0.1), np.log(100)),       # kappa
-                (np.log(0.001), np.log(0.999)),   # omega0
-                (np.log(1.001), np.log(20)),      # omega2
-                (-10, 10), (-10, 10),             # p0, p1 logits
-                (np.log(0.01), np.log(100))       # branch_scale
-            ]
-
-            print(f"Starting Branch-Site Model A optimization (branch scaling mode)")
-            print(f"Initial: kappa={init_kappa:.4f}, omega0={init_omega0:.4f}, "
-                  f"omega2={init_omega2:.4f}, p0={init_p0:.4f}, p1={init_p1:.4f}")
+            model_name = "Branch-Site Model A (null)" if self.fix_omega else "Branch-Site Model A"
+            print(f"Starting {model_name} optimization (branch scaling mode)")
+            if self.fix_omega:
+                print(f"Initial: kappa={init_kappa:.4f}, omega0={init_omega0:.4f}, omega2=1.0 (FIXED), "
+                      f"p0={init_p0:.4f}, p1={init_p1:.4f}")
+            else:
+                print(f"Initial: kappa={init_kappa:.4f}, omega0={init_omega0:.4f}, "
+                      f"omega2={init_omega2:.4f}, p0={init_p0:.4f}, p1={init_p1:.4f}")
 
         # Clear history
         self.history = []
@@ -300,11 +352,17 @@ class BranchSiteModelAOptimizer:
         # Extract optimal parameters
         opt_kappa = np.exp(result.x[0])
         opt_omega0 = np.exp(result.x[1])
-        opt_omega2 = np.exp(result.x[2])
+
+        if self.fix_omega:
+            opt_omega2 = 1.0
+            param_offset = 2
+        else:
+            opt_omega2 = np.exp(result.x[2])
+            param_offset = 3
 
         # Extract p0 and p1 from sigmoid
-        p0_raw = 1.0 / (1.0 + np.exp(-result.x[3]))
-        p1_raw = 1.0 / (1.0 + np.exp(-result.x[4]))
+        p0_raw = 1.0 / (1.0 + np.exp(-result.x[param_offset]))
+        p1_raw = 1.0 / (1.0 + np.exp(-result.x[param_offset + 1]))
         total = p0_raw + p1_raw
         if total >= 0.999:
             opt_p0 = p0_raw / total * 0.999
@@ -319,7 +377,10 @@ class BranchSiteModelAOptimizer:
         print(f"Final parameters:")
         print(f"  kappa  = {opt_kappa:.6f}")
         print(f"  omega0 = {opt_omega0:.6f}")
-        print(f"  omega2 = {opt_omega2:.6f}")
+        if self.fix_omega:
+            print(f"  omega2 = 1.000000 (FIXED)")
+        else:
+            print(f"  omega2 = {opt_omega2:.6f}")
         print(f"  p0     = {opt_p0:.6f}")
         print(f"  p1     = {opt_p1:.6f}")
         print(f"  p2     = {1 - opt_p0 - opt_p1:.6f}")
