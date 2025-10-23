@@ -4,18 +4,19 @@ High-performance reimplementation of PAML's codeml for phylogenetic maximum like
 
 ## Status
 
-Production-ready with 10 site-class models and branch-site models fully validated against PAML.
+**Production-ready v0.2.0** - Fully validated against PAML with simplified user-friendly API.
 
 ### Features
 
+- **Simplified API**: New `optimize_model()` function for easy model fitting
 - **Site-class models**: M0, M1a, M2a, M3, M4, M5, M6, M7, M8, M8a, M9
 - **Branch models**: Free-ratio and multi-ratio models for lineage-specific selection
 - **Branch-site models**: Model A (test for positive selection on specific lineages)
 - **Hypothesis testing**: Complete LRT framework for detecting positive selection
-- **Parameter optimization**: Complete MLE optimization for all models
+- **Auto-initialization**: M0-first optimization for reliable convergence on all data types
 - **High-performance Rust backend**: 300-500x faster than NumPy, 3-10x faster than PAML
-- **PAML validation**: All models produce exact numerical matches to PAML
-- **Test coverage**: 16+ validation tests passing, exact agreement with reference outputs
+- **PAML validation**: All models produce exact numerical matches (55 validation tests passing)
+- **Auto file detection**: Automatically detects FASTA vs PHYLIP format
 
 ## Installation
 
@@ -32,15 +33,57 @@ This single command installs all Python dependencies and builds the Rust extensi
 
 ## Quick Start
 
-### Testing for Positive Selection (Recommended)
+### Simple Model Fitting (NEW in v0.2.0!)
 
-The easiest way to test for positive selection:
+The easiest way to fit a codon model:
 
 ```python
-from crabml.analysis import test_positive_selection
+from crabml import optimize_model
+
+# Fit M0 model with one line!
+result = optimize_model("M0", "alignment.fasta", "tree.nwk")
+
+# Beautiful formatted output
+print(result.summary())
+
+# Access results easily
+print(f"omega = {result.omega:.4f}")
+print(f"kappa = {result.kappa:.4f}")
+print(f"lnL = {result.lnL:.2f}")
+
+# Export to JSON
+result.to_json("results.json")
+```
+
+**Output:**
+```
+======================================================================
+MODEL: M0
+======================================================================
+
+Log-likelihood:       -906.017441
+Number of parameters: 13
+
+PARAMETERS:
+  kappa (ts/tv) = 4.5402
+  omega (dN/dS) = 0.8066
+
+TREE:
+  7 sequences
+  11 branches (optimized)
+
+======================================================================
+```
+
+### Testing for Positive Selection
+
+Run hypothesis tests with one function call:
+
+```python
+from crabml import positive_selection
 
 # Run standard likelihood ratio tests
-results = test_positive_selection(
+results = positive_selection(
     alignment='lysozyme.fasta',
     tree='lysozyme.tree',
     test='both'  # Runs both M1a vs M2a and M7 vs M8
@@ -48,29 +91,49 @@ results = test_positive_selection(
 
 # Check results
 print(results['M1a_vs_M2a'].summary())
-print(results['M7_vs_M8'].summary())
 
 # Get p-values
 if results['M1a_vs_M2a'].significant(0.05):
     print(f"Positive selection detected! ω = {results['M1a_vs_M2a'].omega_positive:.2f}")
 ```
 
-### Advanced: Direct Model Optimization
+### More Models
 
-For more control over optimization:
+```python
+from crabml import optimize_model
+
+# Test different models easily
+m1a = optimize_model("M1a", "alignment.fasta", "tree.nwk")
+m2a = optimize_model("M2a", "alignment.fasta", "tree.nwk")
+m7 = optimize_model("M7", "alignment.fasta", "tree.nwk")
+m8 = optimize_model("M8", "alignment.fasta", "tree.nwk")
+
+# Access site class information
+print(f"M2a site classes: {m2a.n_site_classes}")
+print(f"M2a proportions: {m2a.proportions}")
+print(f"M2a omegas: {m2a.omegas}")
+
+# M8 has omega > 1 class
+if m8.params['omega_s'] > 1:
+    print(f"M8 positive selection: ω = {m8.params['omega_s']:.2f}")
+```
+
+### Advanced: Direct Optimizer Access
+
+For maximum control, use the optimizer classes directly:
 
 ```python
 from crabml.io.sequences import Alignment
 from crabml.io.trees import Tree
-from crabml.optimize import M2aOptimizer
+from crabml.optimize.optimizer import M2aOptimizer
 
 # Load data
 alignment = Alignment.from_fasta("alignment.fasta", seqtype='codon')
 tree = Tree.from_newick("tree.nwk")
 
 # Run M2a model optimization
-optimizer = M2aOptimizer(alignment, tree)
-kappa, omega0, omega2, p0, p1, lnL = optimizer.optimize()
+optimizer = M2aOptimizer(alignment, tree, use_f3x4=True)
+kappa, p0, p1, omega0, omega2, lnL = optimizer.optimize()
 
 print(f"Log-likelihood: {lnL:.6f}")
 print(f"ω for positive selection: {omega2:.4f}")
