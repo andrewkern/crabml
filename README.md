@@ -184,6 +184,34 @@ else:
 Test for lineage-specific selection (different ω on different branches):
 
 ```python
+from crabml.analysis import branch_model_test
+
+# Tree with branch labels: #0 = background, #1 = foreground
+# Tests if human-chimp lineage has different ω than mouse-rat
+tree_str = "((human,chimp) #1, (mouse,rat));"
+
+result = branch_model_test(
+    alignment='alignment.fasta',
+    tree=tree_str,
+    verbose=True
+)
+
+# Check results
+print(f"P-value: {result.pvalue:.6f}")
+print(f"LRT statistic: {result.LRT:.6f}")
+
+if result.significant(0.05):
+    omega_fg = result.alt_params['omega1']
+    omega_bg = result.alt_params['omega0']
+    print(f"✓ Lineage-specific selection detected!")
+    print(f"  Foreground ω={omega_fg:.3f}, Background ω={omega_bg:.3f}")
+```
+
+**Advanced: Direct model optimization**
+
+For more control over optimization:
+
+```python
 from crabml.io.sequences import Alignment
 from crabml.io.trees import Tree
 from crabml.optimize.branch import BranchModelOptimizer
@@ -217,6 +245,7 @@ if omega_dict['omega1'] > 1 and omega_dict['omega1'] > omega_dict['omega0']:
 ```
 
 **Key features:**
+- Hypothesis test: Multi-ratio vs M0 (one-ratio) model
 - Multi-ratio model: Different ω for labeled branch groups
 - Free-ratio model: Independent ω for each branch (set `free_ratio=True`)
 - Branch labels specified in tree: `#0`, `#1`, `#2`, etc.

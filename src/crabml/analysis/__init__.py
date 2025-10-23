@@ -12,6 +12,7 @@ from .positive_selection import (
     m8a_vs_m8,
 )
 from .branch_site import branch_site_test
+from .branch_model import branch_model_test, free_ratio_test
 from .results import LRTResult, compare_results
 from .beb import BEBCalculator, BEBResult
 from .beb_visualizer import BEBVisualizer
@@ -22,6 +23,8 @@ __all__ = [
     "m7_vs_m8",
     "m8a_vs_m8",
     "branch_site_test",
+    "branch_model_test",
+    "free_ratio_test",
     "LRTResult",
     "compare_results",
     "BEBCalculator",
