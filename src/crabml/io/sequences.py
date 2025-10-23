@@ -47,6 +47,10 @@ for i in range(64):
 CODON_TO_INDEX = {codon: i for i, codon in enumerate(CODONS)}
 INDEX_TO_CODON = {i: codon for i, codon in enumerate(CODONS)}
 
+# Special codes for missing/ambiguous data
+GAP_CODE = 64  # Gap codon (---)
+UNKNOWN_CODE = -1  # Unknown/stop codon
+
 # Nucleotide encoding
 NUCLEOTIDE_TO_INDEX = {'T': 0, 'C': 1, 'A': 2, 'G': 3}
 INDEX_TO_NUCLEOTIDE = {0: 'T', 1: 'C', 2: 'A', 3: 'G'}
@@ -258,10 +262,10 @@ class Alignment:
         if not names:
             raise ValueError("No sequences found in FASTA file")
 
-        # Remove gaps/spaces
-        sequences_clean = [re.sub(r'[\s\-]', '', seq) for seq in sequences_raw]
+        # Remove spaces but KEEP gaps (PAML cleandata=0 behavior)
+        sequences_clean = [re.sub(r'\s', '', seq) for seq in sequences_raw]
 
-        # Check all sequences same length
+        # Check all sequences same length (WITH gaps intact)
         seq_lengths = [len(seq) for seq in sequences_clean]
         if len(set(seq_lengths)) > 1:
             raise ValueError(
@@ -311,6 +315,7 @@ class Alignment:
         -------
         encoded : ndarray, shape (n_sequences, n_codons)
             Encoded sequences where each element is a codon index (0-60)
+            or GAP_CODE (64) for gaps (---) or UNKNOWN_CODE (-1) for invalid
         """
         n_sequences = len(sequences)
         n_codons = len(sequences[0]) // 3
@@ -320,11 +325,15 @@ class Alignment:
         for i, seq in enumerate(sequences):
             for j in range(n_codons):
                 codon = seq[j * 3 : j * 3 + 3]
-                if codon in CODON_TO_INDEX:
+                if codon == '---':
+                    # Gap codon (missing data)
+                    encoded[i, j] = GAP_CODE
+                elif codon in CODON_TO_INDEX:
+                    # Valid codon
                     encoded[i, j] = CODON_TO_INDEX[codon]
                 else:
-                    # Stop codon or invalid - mark as -1
-                    encoded[i, j] = -1
+                    # Stop codon or invalid - mark as unknown
+                    encoded[i, j] = UNKNOWN_CODE
 
         return encoded
 

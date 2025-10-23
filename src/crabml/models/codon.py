@@ -4,7 +4,7 @@ Codon substitution models.
 
 import numpy as np
 
-from ..io.sequences import CODONS, GENETIC_CODE, Alignment
+from ..io.sequences import CODONS, GENETIC_CODE, Alignment, GAP_CODE
 from ..core.matrix import create_reversible_Q
 
 
@@ -28,13 +28,14 @@ def compute_codon_frequencies_f3x4(alignment: Alignment) -> np.ndarray:
     if alignment.seqtype != "codon":
         raise ValueError("F3X4 requires codon alignment")
 
-    # Get sequences as strings
+    # Get sequences as strings (skip gaps and invalid codons)
     sequences = []
     for i in range(alignment.n_species):
         seq = []
         for j in range(alignment.n_sites):
             codon_idx = alignment.sequences[i, j]
-            if codon_idx >= 0:  # Valid codon
+            # Skip gaps (64) and invalid codons (< 0)
+            if 0 <= codon_idx < 61:  # Valid codon (0-60)
                 from ..io.sequences import INDEX_TO_CODON
                 seq.append(INDEX_TO_CODON[codon_idx])
         sequences.append(''.join(seq))

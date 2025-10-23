@@ -244,13 +244,23 @@ class M1aOptimizer:
         alignment: Alignment,
         tree: Tree,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True
+        optimize_branch_lengths: bool = True,
+        init_with_m0: bool = True
     ):
-        """Initialize M1a optimizer."""
+        """
+        Initialize M1a optimizer.
+
+        Parameters
+        ----------
+        init_with_m0 : bool
+            Initialize branch lengths by optimizing M0 first (default: True).
+            This dramatically improves convergence.
+        """
         self.alignment = alignment
         self.tree = tree
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
+        self.init_with_m0 = init_with_m0
 
         if use_f3x4:
             self.pi = compute_codon_frequencies_f3x4(alignment)
@@ -311,6 +321,18 @@ class M1aOptimizer:
         maxiter: int = 200
     ) -> Tuple[float, float, float, float]:
         """Optimize M1a parameters."""
+        # Initialize branch lengths with M0 if requested
+        if self.init_with_m0 and self.optimize_branch_lengths:
+            print("Initializing branch lengths with M0...")
+            m0_optimizer = M0Optimizer(
+                self.alignment,
+                self.tree,
+                use_f3x4=self.use_f3x4,
+                optimize_branch_lengths=True
+            )
+            _, _, m0_lnL = m0_optimizer.optimize()
+            print(f"M0 initialization complete: lnL = {m0_lnL:.6f}\n")
+
         # Initial parameters
         if self.optimize_branch_lengths:
             init_branch_lengths = [node.branch_length for node in self.branch_nodes]
@@ -382,13 +404,22 @@ class M2aOptimizer:
         alignment: Alignment,
         tree: Tree,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True
+        optimize_branch_lengths: bool = True,
+        init_with_m0: bool = True
     ):
-        """Initialize M2a optimizer."""
+        """
+        Initialize M2a optimizer.
+
+        Parameters
+        ----------
+        init_with_m0 : bool
+            Initialize branch lengths by optimizing M0 first (default: True).
+        """
         self.alignment = alignment
         self.tree = tree
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
+        self.init_with_m0 = init_with_m0
 
         if use_f3x4:
             self.pi = compute_codon_frequencies_f3x4(alignment)
@@ -465,6 +496,18 @@ class M2aOptimizer:
         maxiter: int = 200
     ) -> Tuple[float, float, float, float, float, float]:
         """Optimize M2a parameters."""
+        # Initialize branch lengths with M0 if requested
+        if self.init_with_m0 and self.optimize_branch_lengths:
+            print("Initializing branch lengths with M0...")
+            m0_optimizer = M0Optimizer(
+                self.alignment,
+                self.tree,
+                use_f3x4=self.use_f3x4,
+                optimize_branch_lengths=True
+            )
+            _, _, m0_lnL = m0_optimizer.optimize()
+            print(f"M0 initialization complete: lnL = {m0_lnL:.6f}\n")
+
         # Hierarchical parameterization:
         # p0 is the proportion of purifying sites
         # f is the fraction of remaining sites that are neutral
@@ -776,14 +819,23 @@ class M7Optimizer:
         tree: Tree,
         ncatG: int = 10,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True
+        optimize_branch_lengths: bool = True,
+        init_with_m0: bool = True
     ):
-        """Initialize M7 optimizer."""
+        """
+        Initialize M7 optimizer.
+
+        Parameters
+        ----------
+        init_with_m0 : bool
+            Initialize branch lengths by optimizing M0 first (default: True).
+        """
         self.alignment = alignment
         self.tree = tree
         self.ncatG = ncatG
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
+        self.init_with_m0 = init_with_m0
 
         if use_f3x4:
             self.pi = compute_codon_frequencies_f3x4(alignment)
@@ -849,6 +901,18 @@ class M7Optimizer:
         maxiter: int = 200
     ) -> Tuple[float, float, float, float]:
         """Optimize M7 parameters."""
+        # Initialize branch lengths with M0 if requested
+        if self.init_with_m0 and self.optimize_branch_lengths:
+            print("Initializing branch lengths with M0...")
+            m0_optimizer = M0Optimizer(
+                self.alignment,
+                self.tree,
+                use_f3x4=self.use_f3x4,
+                optimize_branch_lengths=True
+            )
+            _, _, m0_lnL = m0_optimizer.optimize()
+            print(f"M0 initialization complete: lnL = {m0_lnL:.6f}\n")
+
         # Initial parameters
         if self.optimize_branch_lengths:
             init_branch_lengths = [node.branch_length for node in self.branch_nodes]
@@ -922,14 +986,23 @@ class M8Optimizer:
         tree: Tree,
         ncatG: int = 10,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True
+        optimize_branch_lengths: bool = True,
+        init_with_m0: bool = True
     ):
-        """Initialize M8 optimizer."""
+        """
+        Initialize M8 optimizer.
+
+        Parameters
+        ----------
+        init_with_m0 : bool
+            Initialize branch lengths by optimizing M0 first (default: True).
+        """
         self.alignment = alignment
         self.tree = tree
         self.ncatG = ncatG
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
+        self.init_with_m0 = init_with_m0
 
         if use_f3x4:
             self.pi = compute_codon_frequencies_f3x4(alignment)
@@ -1003,6 +1076,18 @@ class M8Optimizer:
         maxiter: int = 200
     ) -> Tuple[float, float, float, float, float, float]:
         """Optimize M8 parameters."""
+        # Initialize branch lengths with M0 if requested
+        if self.init_with_m0 and self.optimize_branch_lengths:
+            print("Initializing branch lengths with M0...")
+            m0_optimizer = M0Optimizer(
+                self.alignment,
+                self.tree,
+                use_f3x4=self.use_f3x4,
+                optimize_branch_lengths=True
+            )
+            _, _, m0_lnL = m0_optimizer.optimize()
+            print(f"M0 initialization complete: lnL = {m0_lnL:.6f}\n")
+
         # Initial parameters
         if self.optimize_branch_lengths:
             init_branch_lengths = [node.branch_length for node in self.branch_nodes]
@@ -1094,14 +1179,23 @@ class M8aOptimizer:
         tree: Tree,
         ncatG: int = 10,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True
+        optimize_branch_lengths: bool = True,
+        init_with_m0: bool = True
     ):
-        """Initialize M8a optimizer."""
+        """
+        Initialize M8a optimizer.
+
+        Parameters
+        ----------
+        init_with_m0 : bool
+            Initialize branch lengths by optimizing M0 first (default: True).
+        """
         self.alignment = alignment
         self.tree = tree
         self.ncatG = ncatG
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
+        self.init_with_m0 = init_with_m0
 
         if use_f3x4:
             self.pi = compute_codon_frequencies_f3x4(alignment)
@@ -1181,6 +1275,18 @@ class M8aOptimizer:
             (kappa, p0, p_beta, q_beta, log_likelihood)
             Note: omega_s is always 1.0 (not returned as it's fixed)
         """
+        # Initialize branch lengths with M0 if requested
+        if self.init_with_m0 and self.optimize_branch_lengths:
+            print("Initializing branch lengths with M0...")
+            m0_optimizer = M0Optimizer(
+                self.alignment,
+                self.tree,
+                use_f3x4=self.use_f3x4,
+                optimize_branch_lengths=True
+            )
+            _, _, m0_lnL = m0_optimizer.optimize()
+            print(f"M0 initialization complete: lnL = {m0_lnL:.6f}\n")
+
         # Initial parameters (NOTE: 4 params instead of 5, no omega_s)
         if self.optimize_branch_lengths:
             init_branch_lengths = [node.branch_length for node in self.branch_nodes]
