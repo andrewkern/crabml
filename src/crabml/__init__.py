@@ -38,7 +38,16 @@ Examples
 __version__ = "0.2.0"
 
 # High-level API (simple interface)
-from .api import optimize_model, ModelResult
+from .api import (
+    optimize_model,
+    optimize_branch_model,
+    optimize_branch_site_model,
+    ModelResult,  # Backwards compatibility alias
+    SiteModelResult,
+    BranchModelResult,
+    BranchSiteModelResult,
+    ModelResultBase,
+)
 
 # Analysis functions (hypothesis testing)
 from .analysis import (
@@ -63,10 +72,16 @@ from .core.likelihood import LikelihoodCalculator
 __all__ = [
     # Simple API - Start here!
     "optimize_model",
+    "optimize_branch_model",
+    "optimize_branch_site_model",
     "positive_selection",
 
     # Result objects
-    "ModelResult",
+    "ModelResult",  # Backwards compatibility (alias for SiteModelResult)
+    "SiteModelResult",
+    "BranchModelResult",
+    "BranchSiteModelResult",
+    "ModelResultBase",
     "LRTResult",
 
     # Specific hypothesis tests

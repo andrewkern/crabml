@@ -8,7 +8,11 @@ High-performance reimplementation of PAML's codeml for phylogenetic maximum like
 
 ### Features
 
-- **Simplified API**: New `optimize_model()` function for easy model fitting
+- **Unified API**: Simple functions for all model types with specialized result classes
+  - `optimize_model()`: Fit site-class models (M0, M1a, M2a, M7, M8, etc.)
+  - `optimize_branch_model()`: Fit branch models (free-ratio, multi-ratio)
+  - `optimize_branch_site_model()`: Fit branch-site models (Model A)
+- **Type-safe results**: Specialized classes (`SiteModelResult`, `BranchModelResult`, `BranchSiteModelResult`)
 - **Site-class models**: M0, M1a, M2a, M3, M4, M5, M6, M7, M8, M8a, M9
 - **Branch models**: Free-ratio and multi-ratio models for lineage-specific selection
 - **Branch-site models**: Model A (test for positive selection on specific lineages)
@@ -117,6 +121,69 @@ print(f"M2a omegas: {m2a.omegas}")
 if m8.params['omega_s'] > 1:
     print(f"M8 positive selection: ω = {m8.params['omega_s']:.2f}")
 ```
+
+### Branch and Branch-Site Models
+
+crabML now provides simplified functions for branch and branch-site model fitting:
+
+**Branch Models** - Test for lineage-specific selection:
+
+```python
+from crabml import optimize_branch_model
+
+# Tree with branch labels: #0 = background, #1 = foreground
+tree_str = "((human,chimp) #1, (mouse,rat) #0);"
+
+# Multi-ratio model: different ω for labeled branch groups
+result = optimize_branch_model("multi-ratio", "alignment.fasta", tree_str)
+
+print(result.summary())
+print(f"Primate omega: {result.foreground_omega:.3f}")
+print(f"Rodent omega: {result.background_omega:.3f}")
+
+# Free-ratio model: independent ω for each branch (exploratory)
+result = optimize_branch_model("free-ratio", "alignment.fasta", "tree.nwk")
+print(result.omega_dict)  # Dictionary of all branch-specific omegas
+```
+
+**Branch-Site Models** - Test for site-specific positive selection on lineages:
+
+```python
+from crabml import optimize_branch_site_model
+
+# Test for positive selection on primate lineage
+tree_str = "((human,chimp) #1, (mouse,rat) #0);"
+
+# Alternative model (omega2 free to vary)
+result = optimize_branch_site_model("model-a", "alignment.fasta", tree_str)
+
+print(result.summary())
+print(f"Positive selection omega: {result.omega2:.3f}")
+print(f"Sites under selection: {result.foreground_positive_proportion:.1%}")
+
+# Null model (omega2 = 1) for hypothesis testing
+null = optimize_branch_site_model("model-a", "alignment.fasta", tree_str, fix_omega=True)
+```
+
+### Result Classes
+
+crabML uses specialized result classes for type safety and clarity:
+
+- **`SiteModelResult`**: For site-class models (M0, M1a, M2a, M7, M8, etc.)
+  - Properties: `.omega`, `.omegas`, `.proportions`, `.n_site_classes`
+
+- **`BranchModelResult`**: For branch models (free-ratio, multi-ratio)
+  - Properties: `.omega_dict`, `.foreground_omega`, `.background_omega`
+
+- **`BranchSiteModelResult`**: For branch-site models (Model A)
+  - Properties: `.omega0`, `.omega2`, `.proportions`, `.foreground_positive_proportion`
+
+All result classes support:
+- `.summary()`: Human-readable formatted output
+- `.to_dict()`: Export as dictionary
+- `.to_json(filepath)`: Export as JSON
+
+**Note:** `ModelResult` is an alias for `SiteModelResult` for backwards compatibility.
 
 ### Advanced: Direct Optimizer Access
 

@@ -346,5 +346,191 @@ class TestBackwardsCompatibility:
         assert lnL < -900
 
 
+class TestBranchModels:
+    """Test optimize_branch_model() function."""
+
+    @pytest.fixture
+    def branch_files(self):
+        """Path to branch model test data."""
+        data_dir = Path(__file__).parent / "data" / "paml_reference" / "branch_model"
+        return {
+            'alignment': data_dir / "lysozymeSmall.txt",
+            'tree_str': "((Hsa_Human, Hla_gibbon) #1, ((Cgu/Can_colobus, Pne_langur), Mmu_rhesus), (Ssc_squirrelM, Cja_marmoset));",
+        }
+
+    def test_multi_ratio_optimization(self, branch_files):
+        """Test multi-ratio branch model."""
+        from crabml import optimize_branch_model, BranchModelResult
+
+        result = optimize_branch_model(
+            "multi-ratio",
+            branch_files['alignment'],
+            branch_files['tree_str']
+        )
+
+        assert isinstance(result, BranchModelResult)
+        assert result.model_name == "Multi-ratio"
+        assert result.lnL < -900
+        assert result.kappa > 1.0
+
+        # Should have omega0 (background) and omega1 (foreground)
+        omega_dict = result.omega_dict
+        assert 'omega0' in omega_dict
+        assert 'omega1' in omega_dict
+        assert result.background_omega == omega_dict['omega0']
+        assert result.foreground_omega == omega_dict['omega1']
+
+    def test_branch_model_result_summary(self, branch_files):
+        """Test BranchModelResult summary display."""
+        from crabml import optimize_branch_model
+
+        result = optimize_branch_model("multi-ratio", branch_files['alignment'], branch_files['tree_str'])
+        summary = result.summary()
+
+        assert "Multi-ratio" in summary
+        assert "Log-likelihood:" in summary
+        assert "omega0" in summary
+        assert "omega1" in summary
+
+    def test_branch_model_export(self, branch_files):
+        """Test BranchModelResult export methods."""
+        from crabml import optimize_branch_model
+
+        result = optimize_branch_model("multi-ratio", branch_files['alignment'], branch_files['tree_str'])
+
+        # Test to_dict
+        d = result.to_dict()
+        assert 'omega_dict' in d['params']
+        assert d['model_name'] == 'Multi-ratio'
+
+        # Test to_json
+        json_str = result.to_json()
+        import json
+        data = json.loads(json_str)
+        assert data['model_name'] == 'Multi-ratio'
+
+
+class TestBranchSiteModels:
+    """Test optimize_branch_site_model() function."""
+
+    @pytest.fixture
+    def branch_site_files(self):
+        """Path to branch-site model test data."""
+        data_dir = Path(__file__).parent / "data" / "paml_reference" / "branch_model"
+        return {
+            'alignment': data_dir / "lysozymeSmall.txt",
+            'tree_str': "((Hsa_Human, Hla_gibbon) #1, ((Cgu/Can_colobus, Pne_langur), Mmu_rhesus), (Ssc_squirrelM, Cja_marmoset));",
+        }
+
+    def test_branch_site_model_a(self, branch_site_files):
+        """Test Branch-Site Model A."""
+        from crabml import optimize_branch_site_model, BranchSiteModelResult
+
+        result = optimize_branch_site_model(
+            "model-a",
+            branch_site_files['alignment'],
+            branch_site_files['tree_str']
+        )
+
+        assert isinstance(result, BranchSiteModelResult)
+        assert "Branch-Site Model A" in result.model_name
+        assert result.lnL < -900
+        assert result.kappa > 1.0
+
+        # Check site-class parameters
+        assert result.omega0 > 0
+        assert result.omega0 < 1  # Conserved class
+        assert result.omega2 >= 0  # Can be > or < 1
+
+        # Check proportions
+        props = result.proportions
+        assert len(props) == 4  # p0, p1, p2a, p2b
+        assert abs(sum(props) - 1.0) < 0.001
+
+    def test_branch_site_null_model(self, branch_site_files):
+        """Test Branch-Site Model A with omega2 fixed."""
+        from crabml import optimize_branch_site_model
+
+        result = optimize_branch_site_model(
+            "model-a",
+            branch_site_files['alignment'],
+            branch_site_files['tree_str'],
+            fix_omega=True
+        )
+
+        assert result.omega2 == 1.0
+        assert "null" in result.model_name.lower()
+
+    def test_branch_site_result_properties(self, branch_site_files):
+        """Test BranchSiteModelResult properties."""
+        from crabml import optimize_branch_site_model
+
+        result = optimize_branch_site_model("model-a", branch_site_files['alignment'], branch_site_files['tree_str'])
+
+        # Test foreground_positive_proportion
+        fg_prop = result.foreground_positive_proportion
+        assert fg_prop >= 0
+        assert fg_prop <= 1
+        assert abs(fg_prop - (result.proportions[2] + result.proportions[3])) < 0.001
+
+    def test_branch_site_summary(self, branch_site_files):
+        """Test BranchSiteModelResult summary display."""
+        from crabml import optimize_branch_site_model
+
+        result = optimize_branch_site_model("model-a", branch_site_files['alignment'], branch_site_files['tree_str'])
+        summary = result.summary()
+
+        assert "Branch-Site Model A" in summary
+        assert "Site classes" in summary
+        assert "ω₀" in summary or "omega0" in summary
+        assert "ω₂" in summary or "omega2" in summary
+        assert "Foreground positive selection" in summary
+
+    def test_branch_site_export(self, branch_site_files):
+        """Test BranchSiteModelResult export methods."""
+        from crabml import optimize_branch_site_model
+
+        result = optimize_branch_site_model("model-a", branch_site_files['alignment'], branch_site_files['tree_str'])
+
+        # Test to_dict
+        d = result.to_dict()
+        assert 'omega0' in d['params']
+        assert 'omega2' in d['params']
+        assert 'p0' in d['params']
+        assert 'p1' in d['params']
+
+        # Test to_json
+        json_str = result.to_json()
+        import json
+        data = json.loads(json_str)
+        assert "Branch-Site Model A" in data['model_name']
+
+
+class TestModelResultBackwardsCompatibility:
+    """Test that ModelResult alias works correctly."""
+
+    def test_modelresult_alias(self):
+        """Test that ModelResult is an alias for SiteModelResult."""
+        from crabml import ModelResult, SiteModelResult
+
+        assert ModelResult is SiteModelResult
+
+    def test_modelresult_import(self):
+        """Test that ModelResult can still be imported and used."""
+        from crabml import optimize_model, ModelResult
+
+        lysozyme_dir = Path(__file__).parent / "data" / "paml_reference" / "lysozyme"
+        result = optimize_model(
+            "M0",
+            lysozyme_dir / "lysozymeSmall.txt",
+            "((Hsa_Human, Hla_gibbon), ((Cgu/Can_colobus, Pne_langur), Mmu_rhesus), (Ssc_squirrelM, Cja_marmoset));"
+        )
+
+        # Should be instance of both ModelResult and SiteModelResult
+        assert isinstance(result, ModelResult)
+        from crabml import SiteModelResult
+        assert isinstance(result, SiteModelResult)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
