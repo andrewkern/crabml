@@ -7,6 +7,13 @@ import numpy as np
 from ..io.sequences import CODONS, GENETIC_CODE, Alignment, GAP_CODE
 from ..core.matrix import create_reversible_Q
 
+# Try to import Rust Q matrix builder
+try:
+    import crabml_rust
+    RUST_Q_MATRIX = True
+except ImportError:
+    RUST_Q_MATRIX = False
+
 
 def compute_codon_frequencies_f3x4(alignment: Alignment) -> np.ndarray:
     """
@@ -106,6 +113,16 @@ def build_codon_Q_matrix(kappa: float, omega: float, pi: np.ndarray, normalizati
     np.ndarray, shape (61, 61)
         Rate matrix Q
     """
+    # Use Rust implementation if available (10-50x faster)
+    if RUST_Q_MATRIX:
+        return crabml_rust.build_codon_q_matrix_py(
+            kappa,
+            omega,
+            pi,
+            normalization_factor
+        )
+
+    # Fallback to Python implementation
     # Build exchangeability matrix S
     S = np.zeros((61, 61))
 
