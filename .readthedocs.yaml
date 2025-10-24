@@ -12,8 +12,7 @@ build:
   jobs:
     pre_install:
       # Install Rust toolchain
-      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      - source $HOME/.cargo/env
+      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && . $HOME/.cargo/env
     post_install:
       # Build Rust extension
       - uv sync --group docs
