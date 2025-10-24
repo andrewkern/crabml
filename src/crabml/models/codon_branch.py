@@ -81,7 +81,10 @@ class CodonBranchModel:
         if free_ratio:
             # Free-ratio: one omega per branch (excluding root)
             self.n_omega = n_nodes - 1  # Root has no parent branch
+            # Create omega labels: each node gets its own omega index, except root gets 0 (arbitrary)
+            # Root's label doesn't matter since root has no parent branch
             self.omega_labels = np.arange(n_nodes)
+            self.omega_labels[-1] = 0  # Assign root (last node) to omega 0 (unused but valid index)
             print(f"Free-ratio model initialized: {self.n_omega} independent ω parameters")
         else:
             # Multi-ratio: one omega per unique label

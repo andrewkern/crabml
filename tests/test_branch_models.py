@@ -66,7 +66,8 @@ def test_branch_model_two_ratio():
     # Check parameter ranges
     assert 0.1 < kappa < 20.0, f"kappa out of range: {kappa}"
     assert 0.0 < omega_dict['omega0'] < 20.0, f"omega0 out of range: {omega_dict['omega0']}"
-    assert 0.0 < omega_dict['omega1'] < 20.0, f"omega1 out of range: {omega_dict['omega1']}"
+    # omega1 can hit upper bound (999.0) - this matches PAML behavior (see test_branch_paml_validation.py)
+    assert omega_dict['omega1'] > 0.0, f"omega1 should be positive: {omega_dict['omega1']}"
 
     # Check likelihood is reasonable
     assert lnL < 0, f"Log-likelihood should be negative, got {lnL}"

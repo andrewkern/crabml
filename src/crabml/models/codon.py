@@ -10,7 +10,7 @@ from ..core.matrix import create_reversible_Q
 # Try to import Rust Q matrix builder
 try:
     import crabml_rust
-    RUST_Q_MATRIX = True
+    RUST_Q_MATRIX = False  # Temporarily disable to confirm Python works
 except ImportError:
     RUST_Q_MATRIX = False
 
