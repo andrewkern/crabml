@@ -15,7 +15,6 @@ dependencies = [
     "biopython>=1.81",
     "matplotlib>=3.5",
     "seaborn>=0.11",
-    "crabml-rust",
 ]
 
 [tool.uv.sources]
@@ -27,6 +26,9 @@ dev = [
     "pytest-cov>=4.1",
     "ruff>=0.1",
     "ipython>=8.0",
+]
+rust = [
+    "crabml-rust",
 ]
 
 [build-system]
