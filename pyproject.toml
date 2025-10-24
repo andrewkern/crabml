@@ -24,20 +24,12 @@ crabml-rust = { path = "rust" }
 dev = [
     "pytest>=7.4",
     "pytest-cov>=4.1",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.1",
     "ipython>=8.0",
 ]
 rust = [
     "crabml-rust",
-]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[dependency-groups]
-dev = [
-    "pytest-xdist>=3.8.0",
 ]
 docs = [
     "sphinx>=7.0",
@@ -45,6 +37,10 @@ docs = [
     "sphinx-autodoc-typehints>=1.25",
     "myst-parser>=2.0",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
