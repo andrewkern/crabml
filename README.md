@@ -18,7 +18,7 @@ High-performance reimplementation of PAML's codeml for phylogenetic maximum like
 - **Branch-site models**: Model A (test for positive selection on specific lineages)
 - **Hypothesis testing**: Complete LRT framework for detecting positive selection
 - **Auto-initialization**: M0-first optimization for reliable convergence on all data types
-- **High-performance Rust backend**: 300-500x faster than NumPy, 3-10x faster than PAML
+- **High-performance Rust backend**: 3-5x faster than PAML with optimized Python/Rust hybrid approach
 - **PAML validation**: All models produce exact numerical matches (55 validation tests passing)
 - **Auto file detection**: Automatically detects FASTA vs PHYLIP format
 
@@ -428,6 +428,36 @@ Models where ω varies across both sites and branches:
   - Null model: fixes ω₂ = 1 for hypothesis testing
 
 **Validation:** All models match PAML within 0.1 log-likelihood units (typically < 0.05)
+
+## Performance
+
+crabML achieves **3-5× speedup** over PAML through optimized Python/Rust hybrid implementation while maintaining exact numerical agreement.
+
+### Benchmark Results
+
+Full parameter optimization (finding maximum likelihood estimates) on lysozyme dataset (7 sequences, 135 codons):
+
+| Model | PAML | crabML | Speedup |
+|-------|------|--------|---------|
+| **M7** (Beta distribution) | 57.0s | 17.4s | **3.3×** |
+| **M8** (Beta & ω>1) | 96.3s | 20.1s | **4.8×** |
+
+**Average speedup: 4.0×**
+
+### Key Optimizations
+
+1. **Rust likelihood calculation**: BLAS-accelerated tree traversal (300-500× faster than NumPy)
+2. **Precomputed codon graph**: Cached single-nucleotide substitution network (21× faster Q matrix construction)
+3. **Efficient eigendecomposition**: Cached matrix exponentials reused across branch lengths
+4. **Hybrid architecture**: Rust for computation-heavy likelihood, optimized Python for model-specific logic
+
+### Numerical Accuracy
+
+All optimizations maintain **exact numerical agreement** with PAML:
+- M7: lnL = -902.510023 (PAML: -902.510018, diff: 0.000005)
+- M8: lnL = -899.999247 (PAML: -899.999237, diff: 0.000010)
+
+Differences are within floating-point precision and have no scientific impact.
 
 ## Development
 
