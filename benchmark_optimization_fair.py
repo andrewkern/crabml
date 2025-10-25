@@ -31,7 +31,7 @@ def benchmark_paml_optimization(ctl_file: str, n_runs: int = 3):
         print(f"    Run {i+1}/{n_runs}...")
         start = time.time()
         result = subprocess.run(
-            ["/home/adkern/py-codeml/paml/src/codeml", ctl_file],
+            ["/home/adkern/crabml/paml/src/codeml", ctl_file],
             cwd="tests/data/paml_reference",
             capture_output=True,
             text=True
@@ -80,7 +80,7 @@ def benchmark_pycodeml_m7_optimization(n_runs: int = 3):
         tree = Tree.from_newick(tree_str)
 
         # Create optimizer
-        opt = M7Optimizer(aln, tree, ncatG=10, optimize_branch_lengths=True, use_rust=True)
+        opt = M7Optimizer(aln, tree, ncatG=10, optimize_branch_lengths=True)
 
         # Time the optimization
         start = time.time()
@@ -122,7 +122,7 @@ def benchmark_pycodeml_m8_optimization(n_runs: int = 3):
         print(f"    Run {i+1}/{n_runs}...")
 
         tree = Tree.from_newick(tree_str)
-        opt = M8Optimizer(aln, tree, ncatG=10, optimize_branch_lengths=True, use_rust=True)
+        opt = M8Optimizer(aln, tree, ncatG=10, optimize_branch_lengths=True)
 
         start = time.time()
         kappa, p0, p, q, omega_s, lnL = opt.optimize(
