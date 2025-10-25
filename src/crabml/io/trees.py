@@ -162,9 +162,10 @@ class Tree:
 
             pos = skip_whitespace(s, pos)
 
-            # Parse branch length (e.g., :0.123)
+            # Parse branch length (e.g., :0.123 or : 0.123)
             if pos < len(s) and s[pos] == ':':
                 pos += 1
+                pos = skip_whitespace(s, pos)  # Skip whitespace after colon
                 length_start = pos
                 while pos < len(s) and s[pos] not in ',(); \t\n\r':
                     pos += 1
