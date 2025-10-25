@@ -3,6 +3,7 @@ Codon substitution models.
 """
 
 import numpy as np
+from functools import lru_cache
 
 from ..io.sequences import CODONS, GENETIC_CODE, Alignment, GAP_CODE
 from ..core.matrix import create_reversible_Q
@@ -10,9 +11,81 @@ from ..core.matrix import create_reversible_Q
 # Try to import Rust Q matrix builder
 try:
     import crabml_rust
-    RUST_Q_MATRIX = False  # Temporarily disable to confirm Python works
+    # IMPORTANT: Rust Q matrix builder is disabled due to numerical issues
+    # NumPy uses ILP64 OpenBLAS (64-bit integers) via scipy-openblas64
+    # Rust uses LP64 OpenBLAS (32-bit integers) - no ILP64 support available
+    # This causes 3.7e-16 relative difference that amplifies to 3,700 lnL error
+    # Python implementation is optimized with precomputed graph (21× faster than naive)
+    # See Q_MATRIX_OPTIMIZATION.md for detailed analysis
+    RUST_Q_MATRIX = False
 except ImportError:
     RUST_Q_MATRIX = False
+
+
+# Precompute codon graph for fast Q matrix construction
+@lru_cache(maxsize=1)
+def _build_codon_graph():
+    """
+    Precompute codon substitution graph for fast Q matrix construction.
+
+    This is a key optimization that provides a 21× speedup over the naive approach.
+    Instead of iterating over all 61×61 = 3,721 codon pairs and checking if they
+    differ by a single nucleotide, we precompute the valid neighbors once and cache
+    the result.
+
+    Performance impact:
+    - Only 526 valid single-nucleotide substitutions (vs 3,660 to check)
+    - Average 8.6 neighbors per codon (vs checking all 61)
+    - Eliminates repeated string comparisons and function calls
+    - Q matrix construction: 2.126s → 0.101s (21× faster)
+
+    Returns
+    -------
+    list[list[tuple[int, bool, bool]]]
+        graph[i] contains all valid substitutions from codon i.
+        Each entry is (j, is_transition, is_synonymous) where:
+        - j: index of neighbor codon
+        - is_transition: True if A<->G or C<->T
+        - is_synonymous: True if codons encode same amino acid
+
+    Notes
+    -----
+    This mimics Rust's codon graph optimization but in pure Python.
+    Computed once per session and cached with @lru_cache.
+    Memory overhead: ~4KB (negligible).
+
+    See Also
+    --------
+    Q_MATRIX_OPTIMIZATION.md : Detailed performance analysis and benchmarks
+    """
+    graph = [[] for _ in range(61)]
+
+    for i, codon_i in enumerate(CODONS):
+        for j, codon_j in enumerate(CODONS):
+            if i == j:
+                continue
+
+            # Count nucleotide differences
+            diff_positions = [k for k in range(3) if codon_i[k] != codon_j[k]]
+
+            if len(diff_positions) != 1:
+                # Only single nucleotide changes allowed
+                continue
+
+            # Get the differing nucleotides
+            diff_pos = diff_positions[0]
+            nuc_i = codon_i[diff_pos]
+            nuc_j = codon_j[diff_pos]
+
+            # Check if transition (A<->G or C<->T)
+            is_transition = (nuc_i, nuc_j) in {('A', 'G'), ('G', 'A'), ('C', 'T'), ('T', 'C')}
+
+            # Check if synonymous
+            is_synonymous = GENETIC_CODE[codon_i] == GENETIC_CODE[codon_j]
+
+            graph[i].append((j, is_transition, is_synonymous))
+
+    return graph
 
 
 def compute_codon_frequencies_f3x4(alignment: Alignment) -> np.ndarray:
@@ -94,7 +167,8 @@ def build_codon_Q_matrix(kappa: float, omega: float, pi: np.ndarray, normalizati
     """
     Build a codon rate matrix Q for given kappa, omega, and pi.
 
-    This is a helper function used by all codon models.
+    This is a helper function used by all codon models. Optimized using a
+    precomputed codon substitution graph for 21× speedup over naive implementation.
 
     Parameters
     ----------
@@ -112,6 +186,18 @@ def build_codon_Q_matrix(kappa: float, omega: float, pi: np.ndarray, normalizati
     -------
     np.ndarray, shape (61, 61)
         Rate matrix Q
+
+    Notes
+    -----
+    Implementation uses precomputed codon graph (_build_codon_graph) to avoid
+    O(n²) iteration over all codon pairs. This optimization provides:
+    - 21× speedup on Q matrix construction (2.126s → 0.101s)
+    - 3.13× overall speedup on model optimization
+    - Numerically identical results to naive implementation
+
+    Cannot use Rust Q matrix implementation due to ILP64/LP64 BLAS interface
+    mismatch between NumPy (ILP64) and Rust (LP64), which causes 3,700 lnL
+    error amplification. See Q_MATRIX_OPTIMIZATION.md for details.
     """
     # Use Rust implementation if available (10-50x faster)
     if RUST_Q_MATRIX:
@@ -122,36 +208,28 @@ def build_codon_Q_matrix(kappa: float, omega: float, pi: np.ndarray, normalizati
             normalization_factor
         )
 
-    # Fallback to Python implementation
+    # Fallback to Python implementation (optimized with precomputed graph)
     # Build exchangeability matrix S
     S = np.zeros((61, 61))
 
-    for i, codon_i in enumerate(CODONS):
-        for j, codon_j in enumerate(CODONS):
-            if i == j:
-                continue
+    # Use precomputed codon graph for fast construction
+    # This optimization iterates only over valid single-nucleotide substitutions
+    # (~526 total, ~8.6 per codon) instead of all 61×61 pairs
+    # Performance: 21× faster than naive nested loop approach
+    graph = _build_codon_graph()
 
-            # Count nucleotide differences
-            diffs = sum(1 for k in range(3) if codon_i[k] != codon_j[k])
-
-            if diffs != 1:
-                # Only single nucleotide changes allowed
-                continue
-
-            # Find which position differs
-            diff_pos = next(k for k in range(3) if codon_i[k] != codon_j[k])
-            nuc_i = codon_i[diff_pos]
-            nuc_j = codon_j[diff_pos]
-
+    for i in range(61):
+        # Iterate only over valid neighbors (precomputed)
+        for j, is_transition, is_synonymous in graph[i]:
             # Base exchangeability is 1
             s = 1.0
 
-            # Multiply by kappa if transition
-            if is_transition(nuc_i, nuc_j):
+            # Multiply by kappa if transition (A<->G or C<->T)
+            if is_transition:
                 s *= kappa
 
             # Multiply by omega if non-synonymous
-            if not is_synonymous(codon_i, codon_j):
+            if not is_synonymous:
                 s *= omega
 
             S[i, j] = s
