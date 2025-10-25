@@ -431,7 +431,7 @@ Models where ω varies across both sites and branches:
 
 ## Performance
 
-crabML achieves **3-5× speedup** over PAML through optimized Python/Rust hybrid implementation while maintaining exact numerical agreement.
+crabML achieves **~10× speedup** over PAML through optimized Python/Rust hybrid implementation while maintaining exact numerical agreement.
 
 ### Benchmark Results
 
@@ -439,17 +439,18 @@ Full parameter optimization (finding maximum likelihood estimates) on lysozyme d
 
 | Model | PAML | crabML | Speedup |
 |-------|------|--------|---------|
-| **M7** (Beta distribution) | 57.0s | 17.4s | **3.3×** |
-| **M8** (Beta & ω>1) | 96.3s | 20.1s | **4.8×** |
+| **M7** (Beta distribution) | 73.2s | 8.3s | **8.8×** |
+| **M8** (Beta & ω>1) | 95.8s | 9.5s | **10.1×** |
 
-**Average speedup: 4.0×**
+**Average speedup: 9.4×**
 
 ### Key Optimizations
 
 1. **Rust likelihood calculation**: BLAS-accelerated tree traversal (300-500× faster than NumPy)
 2. **Precomputed codon graph**: Cached single-nucleotide substitution network (21× faster Q matrix construction)
-3. **Efficient eigendecomposition**: Cached matrix exponentials reused across branch lengths
-4. **Hybrid architecture**: Rust for computation-heavy likelihood, optimized Python for model-specific logic
+3. **Vectorized Q matrix construction**: NumPy broadcasting replaces nested loops (64× faster)
+4. **Efficient eigendecomposition**: Cached matrix exponentials reused across branch lengths
+5. **Hybrid architecture**: Rust for computation-heavy likelihood, optimized Python for model-specific logic
 
 ### Numerical Accuracy
 
