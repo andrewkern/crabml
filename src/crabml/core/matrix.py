@@ -150,24 +150,22 @@ def create_reversible_Q(
     >>> pi = np.ones(4) / 4
     >>> Q = create_reversible_Q(rates, pi)
     """
-    n = len(pi)
-    Q = np.zeros((n, n))
-
-    # Off-diagonal: Q[i,j] = r[i,j] * π_j
-    for i in range(n):
-        for j in range(n):
-            if i != j:
-                Q[i, j] = rates[i, j] * pi[j]
+    # Vectorized: Q[i,j] = r[i,j] * π_j (broadcast pi across columns)
+    Q = rates * pi[np.newaxis, :]
 
     # Diagonal: Q[i,i] = -sum(Q[i,j] for j ≠ i)
-    for i in range(n):
-        Q[i, i] = -np.sum(Q[i, :])
+    # Zero out diagonal first (in case rates has non-zero diagonal)
+    np.fill_diagonal(Q, 0.0)
+    # Compute row sums and negate for diagonal
+    row_sums = np.sum(Q, axis=1)
+    np.fill_diagonal(Q, -row_sums)
 
     # Normalize if requested
     if normalize:
-        # Expected rate = sum(π_i * (-Q[i,i])) = -sum(π_i * Q[i,i])
-        expected_rate = -np.dot(pi, np.diag(Q))
-        Q = Q / expected_rate
+        # Expected rate = -sum(π_i * Q[i,i])
+        # Use diagonal() to get view instead of np.diag() which creates a copy
+        expected_rate = -np.dot(pi, Q.diagonal())
+        Q /= expected_rate  # In-place division
 
     return Q
 
