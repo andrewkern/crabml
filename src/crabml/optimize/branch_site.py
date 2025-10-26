@@ -11,7 +11,7 @@ from ..models.codon import build_codon_Q_matrix, compute_codon_frequencies_f3x4
 from ..models.codon_branch_site import BranchSiteModelA
 from ..io.sequences import Alignment
 from ..io.trees import Tree
-import crabml_rust
+from crabml import crabml_rust
 
 
 class BranchSiteModelAOptimizer:

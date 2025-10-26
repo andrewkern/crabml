@@ -1,6 +1,6 @@
 [project]
 name = "crabml"
-version = "0.1.0"
+version = "0.2.0"
 description = "High-performance reimplementation of PAML's codeml using Python and Rust"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,9 +20,6 @@ dependencies = [
 [project.scripts]
 crabml = "crabml.cli.main:main"
 
-[tool.uv.sources]
-crabml-rust = { path = "rust" }
-
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4",
@@ -30,9 +27,6 @@ dev = [
     "pytest-xdist>=3.8.0",
     "ruff>=0.1",
     "ipython>=8.0",
-]
-rust = [
-    "crabml-rust",
 ]
 docs = [
     "sphinx>=7.0",
@@ -42,8 +36,24 @@ docs = [
 ]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+# Location of Rust code
+manifest-path = "Cargo.toml"
+
+# Python source location
+python-source = "src"
+
+# Module name (must match lib.name in Cargo.toml)
+module-name = "crabml.crabml_rust"
+
+# Build features
+features = ["pyo3/extension-module"]
+
+# Include Python code
+include = ["src/crabml/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
