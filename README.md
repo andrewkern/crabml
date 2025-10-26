@@ -36,10 +36,20 @@ High-performance reimplementation of PAML's codeml for phylogenetic maximum like
 - OpenBLAS or similar BLAS/LAPACK implementation
 
 ```bash
-uv sync --all-extras --reinstall-package crabml-rust
+# Clone the repository
+git clone https://github.com/andrewkern/crabml.git
+cd crabml
+
+# Install all dependencies and build Rust extension
+uv sync --all-extras
 ```
 
-This single command installs all Python dependencies and builds the Rust extension. The `--reinstall-package` flag ensures the Rust extension is rebuilt even if already installed.
+This single command installs all Python dependencies (including maturin) and builds the high-performance Rust backend.
+
+**Rebuilding after Rust changes:**
+```bash
+uv sync --all-extras --reinstall-package crabml-rust
+```
 
 ## Quick Start
 
@@ -644,27 +654,68 @@ Differences are within floating-point precision and have no scientific impact.
 
 ## Development
 
+### Setup
+
 ```bash
-# Build/rebuild the package (including Rust extension)
+# Install all dependencies (including maturin for building Rust)
+uv sync --all-extras
+
+# Rebuild Rust extension after changes
 uv sync --all-extras --reinstall-package crabml-rust
+```
 
-# Run tests
-uv run pytest
+### Testing Strategy
 
-# Run tests with coverage
-uv run pytest --cov=pycodeml --cov-report=html
+crabML uses a two-tier testing strategy for fast development cycles and comprehensive validation:
 
-# Run specific test
+**Tier 1: Fast CI Tests** (~203 tests, 5-10 min)
+```bash
+# Run fast tests (excludes slow PAML validation)
+uv run pytest -m "not slow" -n 4 -v
+
+# Automatically runs on GitHub Actions for every push/PR
+```
+
+**Tier 2: PAML Validation Tests** (~30 tests, 10-15 min)
+```bash
+# Run slow PAML validation tests
+uv run pytest -m "slow" -n 4 -v
+
+# Run FULL test suite (fast + slow)
+uv run pytest -n 4 -v
+```
+
+**Recommended workflow:**
+- During development: Run fast tests (`-m "not slow"`)
+- Before creating PR: Run full test suite (all tests)
+- CI automatically runs fast tests on every push
+
+See [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) for detailed information.
+
+### Other Commands
+
+```bash
+# Run specific test file
 uv run pytest tests/test_reference/test_matrix.py -v
 
-# Run Rust tests
-cd rust
-cargo test
-cd ..
+# Run tests with coverage
+uv run pytest --cov=crabml --cov-report=html
 
-# Run PAML validation tests
-uv run pytest tests/test_rust/test_paml_rust_validation.py -v
+# Run Rust tests directly
+cargo test
+
+# Run specific PAML validation test
+uv run pytest tests/test_rust/test_paml_rust_validation.py::TestRustPAMLValidation::test_rust_m8_likelihood_matches_paml -v
 ```
+
+### Continuous Integration
+
+GitHub Actions automatically runs fast tests on every push and pull request:
+- Builds Rust extension in release mode
+- Runs 203 fast tests with 2 workers
+- Expected runtime: ~12-15 minutes
+
+See [.github/workflows/ci.yml](.github/workflows/ci.yml) for CI configuration.
 
 ## License
 
