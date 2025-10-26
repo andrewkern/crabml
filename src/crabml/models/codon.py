@@ -10,7 +10,7 @@ from ..core.matrix import create_reversible_Q
 
 # Try to import Rust Q matrix builder
 try:
-    import crabml_rust
+    from crabml import crabml_rust
     # IMPORTANT: Rust Q matrix builder is disabled due to numerical issues
     # NumPy uses ILP64 OpenBLAS (64-bit integers) via scipy-openblas64
     # Rust uses LP64 OpenBLAS (32-bit integers) - no ILP64 support available

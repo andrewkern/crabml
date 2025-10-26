@@ -6,6 +6,12 @@ dist/
 wheels/
 *.egg-info
 
+# Maturin build artifacts
+/target/
+*.so
+*.pyd
+*.dylib
+
 # Virtual environments
 .venv
 

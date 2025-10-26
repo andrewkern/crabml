@@ -9,7 +9,7 @@ import numpy as np
 from typing import Optional
 
 try:
-    import crabml_rust
+    from crabml import crabml_rust
     RUST_AVAILABLE = True
 except ImportError:
     RUST_AVAILABLE = False
