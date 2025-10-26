@@ -122,6 +122,7 @@ def test_lysin_m1a_vs_paml(lysin_data):
     assert 0 < omega0 < 1, f"omega0 should be < 1: {omega0}"
 
 
+@pytest.mark.slow
 def test_lysin_m2a_vs_paml(lysin_data):
     """Test M2a (PositiveSelection) model against PAML reference."""
     alignment, tree = lysin_data
@@ -132,7 +133,7 @@ def test_lysin_m2a_vs_paml(lysin_data):
 
     # Unpack result
     if len(result) == 6:
-        kappa, p0, p1, omega0, omega2, lnL = result
+        kappa, omega0, omega2, p0, p1, lnL = result
     else:
         raise ValueError(f"Unexpected number of return values: {len(result)}")
 
@@ -155,6 +156,7 @@ def test_lysin_m2a_vs_paml(lysin_data):
     assert p1 >= 0, f"p1 should be non-negative: {p1}"
 
 
+@pytest.mark.slow
 def test_lysin_m7_vs_paml(lysin_data):
     """Test M7 (Beta) model against PAML reference."""
     alignment, tree = lysin_data
@@ -179,6 +181,7 @@ def test_lysin_m7_vs_paml(lysin_data):
     assert q_beta > 0, f"q_beta should be positive: {q_beta}"
 
 
+@pytest.mark.slow
 def test_lysin_m8_vs_paml(lysin_data):
     """Test M8 (Beta&ω) model against PAML reference."""
     alignment, tree = lysin_data
@@ -206,6 +209,7 @@ def test_lysin_m8_vs_paml(lysin_data):
     assert omega_s > 1, f"omega_s should be > 1: {omega_s}"
 
 
+@pytest.mark.slow
 def test_lysin_m8a_vs_paml(lysin_data):
     """Test M8a (Beta&ω=1) model against PAML reference."""
     alignment, tree = lysin_data
