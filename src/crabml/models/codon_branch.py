@@ -195,7 +195,7 @@ class CodonBranchModel:
         # Compute likelihood
         if use_rust:
             try:
-                from crabml_rust import compute_log_likelihood_branch
+                from crabml.crabml_rust import compute_log_likelihood_branch
 
                 # Build parent indices from tree structure
                 parent_indices = []
