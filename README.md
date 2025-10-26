@@ -435,14 +435,24 @@ crabML achieves **~10× speedup** over PAML through optimized Python/Rust hybrid
 
 ### Benchmark Results
 
-Full parameter optimization (finding maximum likelihood estimates) on lysozyme dataset (7 sequences, 135 codons):
+Full parameter optimization (finding maximum likelihood estimates) on two datasets:
+
+**Lysozyme dataset** (7 sequences, 11 branches, 135 codons):
 
 | Model | PAML | crabML | Speedup |
 |-------|------|--------|---------|
-| **M7** (Beta distribution) | 73.2s | 8.3s | **8.8×** |
-| **M8** (Beta & ω>1) | 95.8s | 9.5s | **10.1×** |
+| **M7** (Beta distribution) | 60.4s | 8.0s | **7.5×** |
+| **M8** (Beta & ω>1) | 91.4s | 9.7s | **9.4×** |
 
-**Average speedup: 9.4×**
+**Lysin dataset** (25 sequences, 49 branches, 214 codons):
+
+| Model | PAML | crabML | Speedup |
+|-------|------|--------|---------|
+| **M7** (Beta distribution) | 658.4s | 73.1s | **9.0×** |
+| **M8** (Beta & ω>1) | 1190.9s | 93.8s | **12.7×** |
+
+**Overall average speedup: 9.7×**
+
 
 ### Key Optimizations
 
