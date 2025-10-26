@@ -30,10 +30,23 @@ High-performance reimplementation of PAML's codeml for phylogenetic maximum like
 
 ## Installation
 
-**Requirements:**
-- Python 3.11+
-- Rust toolchain (install from https://rustup.rs)
-- OpenBLAS or similar BLAS/LAPACK implementation
+### Prerequisites
+
+1. **Install Rust** (required for building the high-performance backend):
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   source $HOME/.cargo/env  # or restart your shell
+   ```
+   Verify: `rustc --version`
+
+2. **Install uv** (Python package manager):
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+3. **Python 3.11+** (usually comes with your system)
+
+### Build from Source
 
 ```bash
 # Clone the repository
@@ -46,9 +59,16 @@ uv sync --all-extras
 
 This single command installs all Python dependencies (including maturin) and builds the high-performance Rust backend.
 
-**Rebuilding after Rust changes:**
+### Troubleshooting
+
+**If you get "rustc is not installed" error:**
+- Install Rust first (see Prerequisites above)
+- Make sure `rustc` and `cargo` are in your PATH
+
+**For a completely clean rebuild:**
 ```bash
-uv sync --all-extras --reinstall-package crabml-rust
+rm -rf .venv target/
+uv sync --all-extras
 ```
 
 ## Quick Start
