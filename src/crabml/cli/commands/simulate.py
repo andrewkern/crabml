@@ -96,7 +96,9 @@ def simulate_m0(
     # Load tree
     if not quiet:
         typer.echo(f"Loading tree from {tree}...")
-    tree_obj = Tree.from_newick(str(tree))
+    with open(tree) as f:
+        tree_str = f.read()
+    tree_obj = Tree.from_newick(tree_str)
 
     # Validate tree
     if tree_obj.root is None:
