@@ -10,6 +10,7 @@ from crabml.io.trees import Tree
 from crabml.analysis import branch_model_test, free_ratio_test
 
 
+@pytest.mark.slow
 def test_branch_model_test_two_ratio():
     """
     Test branch model hypothesis test (two-ratio vs M0).
@@ -70,6 +71,7 @@ def test_branch_model_test_two_ratio():
     print(f"  Branch model ω1 (foreground): {result.alt_params['omega1']:.4f}")
 
 
+@pytest.mark.slow
 def test_branch_model_test_three_ratio():
     """
     Test branch model hypothesis test with three omega categories.
@@ -150,6 +152,7 @@ def test_branch_model_result_methods():
     assert 'pvalue' in result_dict
 
 
+@pytest.mark.slow
 def test_free_ratio_model_test():
     """
     Test free-ratio model hypothesis test.

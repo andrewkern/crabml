@@ -18,6 +18,7 @@ from crabml.io.trees import Tree
 from crabml.optimize.branch import BranchModelOptimizer
 
 
+@pytest.mark.slow
 def test_branch_model_two_ratio():
     """
     Test two-ratio branch model (model=2).

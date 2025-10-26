@@ -14,6 +14,7 @@ from crabml.io.trees import Tree
 from crabml.optimize.branch import BranchModelOptimizer
 
 
+@pytest.mark.slow
 def test_branch_model_two_ratio_vs_paml():
     """
     Test two-ratio branch model against PAML reference.
@@ -81,6 +82,7 @@ def test_branch_model_two_ratio_vs_paml():
     print("\n✓ PAML validation PASSED!")
 
 
+@pytest.mark.slow
 def test_branch_model_parameter_interpretation():
     """
     Test that branch model parameters are interpretable.

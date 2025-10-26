@@ -22,6 +22,7 @@ from crabml.core.likelihood_rust import RustLikelihoodCalculator
 import crabml_rust
 
 
+@pytest.mark.slow
 def test_branch_site_model_a_likelihood():
     """Test Branch-Site Model A likelihood matches PAML exactly."""
 
