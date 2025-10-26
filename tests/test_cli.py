@@ -17,13 +17,13 @@ class TestCLIHelp:
         result = cli_runner.invoke(app, ["--help"])
         assert result.exit_code == 0
         assert "crabml" in result.stdout.lower()
-        assert "test" in result.stdout
+        assert "site-model" in result.stdout
         assert "fit" in result.stdout
         assert "branch-site" in result.stdout
 
-    def test_test_help(self, cli_runner):
-        """Test 'test' command help message."""
-        result = cli_runner.invoke(app, ["test", "--help"])
+    def test_site_model_help(self, cli_runner):
+        """Test 'site-model' command help message."""
+        result = cli_runner.invoke(app, ["site-model", "--help"])
         assert result.exit_code == 0
         assert "positive selection" in result.stdout.lower()
         assert "--alignment" in result.stdout or "-s" in result.stdout
@@ -128,14 +128,14 @@ class TestCLIFit:
         assert result.exit_code != 0  # Should fail
 
 
-class TestCLITest:
-    """Test 'test' command functionality."""
+class TestCLISiteModel:
+    """Test 'site-model' command functionality."""
 
     @pytest.mark.slow
     def test_m7m8_text_output(self, cli_runner, lysozyme_small_files, lysozyme_tree_file):
         """Test M7 vs M8 test with text output."""
         result = cli_runner.invoke(app, [
-            "test",
+            "site-model",
             "-s", str(lysozyme_small_files["sequences"]),
             "-t", str(lysozyme_tree_file),
             "--test", "m7m8",
@@ -153,7 +153,7 @@ class TestCLITest:
     def test_m1m2_text_output(self, cli_runner, lysozyme_small_files, lysozyme_tree_file):
         """Test M1a vs M2a test with text output."""
         result = cli_runner.invoke(app, [
-            "test",
+            "site-model",
             "-s", str(lysozyme_small_files["sequences"]),
             "-t", str(lysozyme_tree_file),
             "--test", "m1m2",
@@ -169,7 +169,7 @@ class TestCLITest:
     def test_both_tests(self, cli_runner, lysozyme_small_files, lysozyme_tree_file):
         """Test running both M1a vs M2a and M7 vs M8."""
         result = cli_runner.invoke(app, [
-            "test",
+            "site-model",
             "-s", str(lysozyme_small_files["sequences"]),
             "-t", str(lysozyme_tree_file),
             "--test", "both",
@@ -187,7 +187,7 @@ class TestCLITest:
         output_file = tmp_path / "test_result.json"
 
         result = cli_runner.invoke(app, [
-            "test",
+            "site-model",
             "-s", str(lysozyme_small_files["sequences"]),
             "-t", str(lysozyme_tree_file),
             "--test", "m7m8",
@@ -211,7 +211,7 @@ class TestCLITest:
         output_file = tmp_path / "test_result.tsv"
 
         result = cli_runner.invoke(app, [
-            "test",
+            "site-model",
             "-s", str(lysozyme_small_files["sequences"]),
             "-t", str(lysozyme_tree_file),
             "--test", "m7m8",
@@ -228,7 +228,7 @@ class TestCLITest:
         content = output_file.read_text()
         lines = content.strip().split('\n')
         assert len(lines) >= 2  # header + at least one data row
-        assert "test" in lines[0]
+        assert "site-model" in lines[0]
         assert "pvalue" in lines[0]
 
 
