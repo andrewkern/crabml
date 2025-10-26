@@ -19,7 +19,7 @@ from crabml.io.trees import Tree
 from crabml.models.codon import build_codon_Q_matrix, compute_codon_frequencies_f3x4
 from crabml.models.codon_branch_site import BranchSiteModelA
 from crabml.core.likelihood_rust import RustLikelihoodCalculator
-import crabml_rust
+from crabml import crabml_rust
 
 
 @pytest.mark.slow

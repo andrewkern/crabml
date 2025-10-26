@@ -27,6 +27,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     "ruff>=0.1",
     "ipython>=8.0",
+    "maturin>=1.9,<2.0",
 ]
 docs = [
     "sphinx>=7.0",
