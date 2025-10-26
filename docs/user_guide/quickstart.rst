@@ -3,8 +3,34 @@ Quick Start Guide
 
 This guide will get you up and running with crabML in minutes.
 
+crabML can be used either via the command-line interface or as a Python library.
+
+Command-Line Interface
+----------------------
+
+The fastest way to get started is with the ``crabml`` command:
+
+.. code-block:: bash
+
+   # Site-class model tests (positive selection)
+   crabml site-model -s alignment.fasta -t tree.nwk --test both
+
+   # Branch model tests (lineage-specific selection)
+   crabml branch-model -s alignment.fasta -t labeled_tree.nwk --test multi-ratio
+
+   # Branch-site model test (site + lineage selection)
+   crabml branch-site -s alignment.fasta -t labeled_tree.nwk
+
+   # Fit a single model
+   crabml fit -m M0 -s alignment.fasta -t tree.nwk
+
+For complete CLI documentation, see :doc:`cli`.
+
+Python Library
+--------------
+
 Your First Analysis
--------------------
+~~~~~~~~~~~~~~~~~~~
 
 Let's fit a simple M0 (one-ratio) model to an alignment:
 

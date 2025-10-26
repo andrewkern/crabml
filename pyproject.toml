@@ -8,14 +8,17 @@ license = { text = "GPL-3.0-or-later" }
 authors = [
     { name = "Andrew Kern", email = "adkern@uoregon.edu" }
 ]
-
 dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
     "biopython>=1.81",
     "matplotlib>=3.5",
     "seaborn>=0.11",
+    "typer>=0.9",
 ]
+
+[project.scripts]
+crabml = "crabml.cli.main:main"
 
 [tool.uv.sources]
 crabml-rust = { path = "rust" }

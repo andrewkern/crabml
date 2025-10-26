@@ -6,7 +6,14 @@ crabML Documentation
 Features
 --------
 
-* **Unified API**: Simple functions for all model types with specialized result classes
+* **Command-Line Interface**: Simple ``crabml`` command with four analysis modes
+
+  - ``site-model``: Site-class model tests (M1a vs M2a, M7 vs M8)
+  - ``branch-model``: Branch model tests (multi-ratio, free-ratio)
+  - ``branch-site``: Branch-site model tests
+  - ``fit``: Fit single models
+
+* **Unified Python API**: Simple functions for all model types with specialized result classes
 * **Site-class models**: M0, M1a, M2a, M3, M4, M5, M6, M7, M8, M8a, M9
 * **Branch models**: Free-ratio and multi-ratio models for lineage-specific selection
 * **Branch-site models**: Model A (test for positive selection on specific lineages)
@@ -17,7 +24,23 @@ Features
 Quick Start
 -----------
 
-Fit a single model:
+Command-Line Interface:
+
+.. code-block:: bash
+
+   # Site-class model tests (positive selection)
+   crabml site-model -s alignment.fasta -t tree.nwk --test both
+
+   # Branch model tests (lineage-specific selection)
+   crabml branch-model -s alignment.fasta -t labeled_tree.nwk --test multi-ratio
+
+   # Branch-site model test (site + lineage selection)
+   crabml branch-site -s alignment.fasta -t labeled_tree.nwk
+
+   # Fit a single model
+   crabml fit -m M0 -s alignment.fasta -t tree.nwk
+
+Python API - Fit a single model:
 
 .. code-block:: python
 
@@ -27,7 +50,7 @@ Fit a single model:
    print(result.summary())
    print(f"omega = {result.omega:.4f}")
 
-Test for positive selection:
+Python API - Test for positive selection:
 
 .. code-block:: python
 
@@ -45,6 +68,7 @@ Contents
 
    user_guide/installation
    user_guide/quickstart
+   user_guide/cli
    user_guide/models
    user_guide/hypothesis_testing
    user_guide/advanced

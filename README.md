@@ -8,7 +8,13 @@ High-performance reimplementation of PAML's codeml for phylogenetic maximum like
 
 ### Features
 
-- **Unified API**: Simple functions for all model types with specialized result classes
+- **Command-Line Interface**: Simple `crabml` command for common analyses
+  - `crabml site-model`: Run site-class model tests (M1a vs M2a, M7 vs M8)
+  - `crabml branch-model`: Run branch model tests (multi-ratio, free-ratio)
+  - `crabml branch-site`: Run branch-site model tests
+  - `crabml fit`: Fit single models (M0, M1a, M2a, M7, M8, etc.)
+  - Multiple output formats: text, JSON, TSV
+- **Unified Python API**: Simple functions for all model types with specialized result classes
   - `optimize_model()`: Fit site-class models (M0, M1a, M2a, M7, M8, etc.)
   - `optimize_branch_model()`: Fit branch models (free-ratio, multi-ratio)
   - `optimize_branch_site_model()`: Fit branch-site models (Model A)
@@ -77,6 +83,172 @@ TREE:
   11 branches (optimized)
 
 ======================================================================
+```
+
+## Command-Line Interface
+
+crabML provides a streamlined command-line interface for common analyses:
+
+### Quick Examples
+
+```bash
+# Site-class model tests (positive selection)
+crabml site-model -s alignment.fasta -t tree.nwk --test both
+
+# Branch model tests (lineage-specific selection)
+crabml branch-model -s alignment.fasta -t labeled_tree.nwk --test multi-ratio
+
+# Branch-site model test (site and lineage-specific selection)
+crabml branch-site -s alignment.fasta -t labeled_tree.nwk
+
+# Fit a single model
+crabml fit -m M0 -s alignment.fasta -t tree.nwk
+```
+
+### Available Commands
+
+#### `crabml site-model` - Positive Selection Tests
+
+Run standard likelihood ratio tests for detecting positive selection:
+
+```bash
+# Run M7 vs M8 test
+crabml site-model -s lysozyme.fasta -t lysozyme.nwk --test m7m8
+
+# Run M1a vs M2a test
+crabml site-model -s lysozyme.fasta -t lysozyme.nwk --test m1m2
+
+# Run both tests
+crabml site-model -s lysozyme.fasta -t lysozyme.nwk --test both
+
+# Output as JSON
+crabml site-model -s lysozyme.fasta -t lysozyme.nwk --test both --format json -o results.json
+
+# Output as TSV (for spreadsheets)
+crabml site-model -s lysozyme.fasta -t lysozyme.nwk --test both --format tsv -o results.tsv
+```
+
+**Options:**
+- `-s, --alignment`: Path to alignment file (FASTA or PHYLIP)
+- `-t, --tree`: Path to tree file (Newick format)
+- `--test`: Which test to run: `m1m2`, `m7m8`, `both`, or `all`
+- `--format`: Output format: `text` (default), `json`, or `tsv`
+- `--output, -o`: Write output to file
+- `--maxiter`: Maximum optimization iterations (default: 500)
+- `--alpha`: Significance threshold (default: 0.05)
+- `--quiet`: Suppress progress output
+- `--verbose`: Show detailed optimization progress
+
+#### `crabml fit` - Single Model Fitting
+
+Fit a specific codon substitution model:
+
+```bash
+# Fit M0 model
+crabml fit -m M0 -s alignment.fasta -t tree.nwk
+
+# Fit M8 with custom settings
+crabml fit -m M8 -s alignment.fasta -t tree.nwk --maxiter 1000 --verbose
+
+# Output as JSON
+crabml fit -m M2a -s alignment.fasta -t tree.nwk --format json -o m2a_result.json
+```
+
+**Supported models:** M0, M1a, M2a, M3, M7, M8, M8a
+
+**Options:**
+- `-m, --model`: Model name (required)
+- `-s, --alignment`: Path to alignment file (FASTA or PHYLIP)
+- `-t, --tree`: Path to tree file (Newick format)
+- `--format`: Output format: `text` (default) or `json`
+- `--output, -o`: Write output to file
+- `--maxiter`: Maximum optimization iterations (default: 500)
+- `--no-m0-init`: Skip M0 initialization (not recommended)
+- `--quiet`: Suppress progress output
+- `--verbose`: Show detailed optimization progress
+
+#### `crabml branch-model` - Branch Model Tests
+
+Test for lineage-specific selection using branch models:
+
+```bash
+# Multi-ratio test (different omega for labeled branches)
+crabml branch-model -s alignment.fasta -t labeled_tree.nwk --test multi-ratio
+
+# Free-ratio test (independent omega for each branch)
+crabml branch-model -s alignment.fasta -t tree.nwk --test free-ratio
+```
+
+**Supported tests:**
+- `multi-ratio`: Different omega for labeled branch groups (recommended)
+- `free-ratio`: Independent omega for each branch (exploratory, prone to overfitting)
+
+**Options:**
+- `-s, --alignment`: Path to alignment file (FASTA or PHYLIP)
+- `-t, --tree`: Path to tree file (Newick format, with branch labels for multi-ratio)
+- `--test`: Which test to run: `multi-ratio` (default) or `free-ratio`
+- `--format`: Output format: `text` (default), `json`, or `tsv`
+- `--output, -o`: Write output to file
+- `--maxiter`: Maximum optimization iterations (default: 1000)
+- `--alpha`: Significance threshold (default: 0.05)
+- `--quiet`: Suppress progress output
+- `--verbose`: Show detailed optimization progress
+
+#### `crabml branch-site` - Branch-Site Model Test
+
+Test for positive selection on specific lineages using branch-site Model A:
+
+```bash
+# Tree must have branch labels: #0 (background), #1 (foreground)
+crabml branch-site -s alignment.fasta -t labeled_tree.nwk
+
+# With custom settings
+crabml branch-site -s alignment.fasta -t labeled_tree.nwk --maxiter 1000 --alpha 0.01
+```
+
+**Options:**
+- `-s, --alignment`: Path to alignment file (FASTA or PHYLIP)
+- `-t, --tree`: Path to tree file with branch labels (Newick format)
+- `--format`: Output format: `text` (default), `json`, or `tsv`
+- `--output, -o`: Write output to file
+- `--maxiter`: Maximum optimization iterations (default: 500)
+- `--alpha`: Significance threshold (default: 0.05)
+- `--quiet`: Suppress progress output
+- `--verbose`: Show detailed optimization progress
+
+### CLI Example Output
+
+**Text format (default):**
+```
+Test 2: M7 (Beta) vs M8 (Beta + positive selection)
+--------------------------------------------------------------------------------
+Null (M7):           lnL = -902.510    parameters = {...}
+Alternative (M8):    lnL = -899.999    parameters = {...}
+
+Likelihood Ratio Test:
+  2ΔlnL = 5.02    df = 2    p-value = 0.0812
+
+Result: No significant evidence for positive selection (p > 0.05)
+```
+
+**JSON format:**
+```json
+{
+  "M7_vs_M8": {
+    "test_name": "M7 vs M8",
+    "lnL_null": -902.510,
+    "lnL_alt": -899.999,
+    "LRT": 5.022,
+    "pvalue": 0.0812,
+    "significant": false
+  }
+}
+```
+
+**TSV format (for Excel/R):**
+```
+test	null_model	alt_model	null_lnL	alt_lnL	LRT	df	pvalue	significant
+M7_vs_M8	M7	M8	-902.510	-899.999	5.022	2	0.0812	no
 ```
 
 ### Testing for Positive Selection
