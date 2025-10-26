@@ -81,7 +81,8 @@ def test_lysin_m0_vs_paml(lysin_data):
     alignment, tree = lysin_data
 
     optimizer = M0Optimizer(alignment, tree, use_f3x4=True)
-    kappa, omega, lnL = optimizer.optimize()
+    # Lysin tree has no initial branch lengths, needs more iterations
+    kappa, omega, lnL = optimizer.optimize(maxiter=1000)
 
     paml_lnL = PAML_REFERENCE['M0']['lnL']
 
@@ -104,7 +105,8 @@ def test_lysin_m1a_vs_paml(lysin_data):
 
     # M1a optimizer now automatically initializes with M0 (init_with_m0=True by default)
     optimizer = M1aOptimizer(alignment, tree, use_f3x4=True)
-    kappa, p0, omega0, lnL = optimizer.optimize(maxiter=500)
+    # Lysin tree has no initial branch lengths, needs more iterations
+    kappa, p0, omega0, lnL = optimizer.optimize(maxiter=1000)
 
     paml_lnL = PAML_REFERENCE['M1a']['lnL']
 
@@ -129,7 +131,8 @@ def test_lysin_m2a_vs_paml(lysin_data):
 
     # M2a optimizer now automatically initializes with M0
     optimizer = M2aOptimizer(alignment, tree, use_f3x4=True)
-    result = optimizer.optimize(maxiter=500)
+    # Lysin tree has no initial branch lengths, needs more iterations
+    result = optimizer.optimize(maxiter=1000)
 
     # Unpack result
     if len(result) == 6:
@@ -163,7 +166,8 @@ def test_lysin_m7_vs_paml(lysin_data):
 
     # M7 optimizer now automatically initializes with M0
     optimizer = M7Optimizer(alignment, tree, use_f3x4=True)
-    kappa, p_beta, q_beta, lnL = optimizer.optimize(maxiter=500)
+    # Lysin tree has no initial branch lengths, needs more iterations
+    kappa, p_beta, q_beta, lnL = optimizer.optimize(maxiter=1000)
 
     paml_lnL = PAML_REFERENCE['M7']['lnL']
 
@@ -187,7 +191,8 @@ def test_lysin_m8_vs_paml(lysin_data):
     alignment, tree = lysin_data
 
     optimizer = M8Optimizer(alignment, tree, use_f3x4=True)
-    kappa, p0, p_beta, q_beta, omega_s, lnL = optimizer.optimize()
+    # Lysin tree has no initial branch lengths, needs more iterations
+    kappa, p0, p_beta, q_beta, omega_s, lnL = optimizer.optimize(maxiter=1000)
 
     paml_lnL = PAML_REFERENCE['M8']['lnL']
 
@@ -215,7 +220,8 @@ def test_lysin_m8a_vs_paml(lysin_data):
     alignment, tree = lysin_data
 
     optimizer = M8aOptimizer(alignment, tree, use_f3x4=True)
-    kappa, p0, p_beta, q_beta, lnL = optimizer.optimize()
+    # Lysin tree has no initial branch lengths, needs more iterations
+    kappa, p0, p_beta, q_beta, lnL = optimizer.optimize(maxiter=1000)
 
     paml_lnL = PAML_REFERENCE['M8a']['lnL']
 
