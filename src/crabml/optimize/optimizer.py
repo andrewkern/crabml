@@ -168,15 +168,24 @@ class M0Optimizer:
             init_branch_lengths = [node.branch_length for node in self.branch_nodes]
 
             # Check if all branch lengths are zero or very small (e.g., tree has no branch lengths)
-            # In this case, add small random perturbations to break symmetry
-            # This helps avoid bad local optima on different CPU architectures
+            # Use least-squares distance to initialize from sequence data (PAML approach)
             max_bl = max(init_branch_lengths)
             if max_bl < 0.001:
-                # Use a fixed seed for reproducibility across machines
-                rng = np.random.default_rng(seed=42)
-                # Add random perturbations in range [0.001, 0.01]
-                init_branch_lengths = [0.001 + rng.uniform(0, 0.009) for _ in init_branch_lengths]
-                print(f"Warning: Tree has no branch lengths. Using random initialization.")
+                print(f"Warning: Tree has no branch lengths.")
+                print(f"Initializing with least-squares distance estimation...")
+
+                from .distance_init import initialize_branch_lengths_ls
+                init_branch_lengths = initialize_branch_lengths_ls(
+                    self.alignment, self.tree, self.branch_nodes
+                )
+
+                # Update tree nodes with initial values
+                for i, node in enumerate(self.branch_nodes):
+                    node.branch_length = init_branch_lengths[i]
+
+                print(f"LS distance initialization complete.")
+                print(f"  Mean branch length: {np.mean(init_branch_lengths):.6f}")
+                print(f"  Range: [{np.min(init_branch_lengths):.6f}, {np.max(init_branch_lengths):.6f}]")
 
             init_params = np.array(
                 [np.log(init_kappa), np.log(init_omega)] +
