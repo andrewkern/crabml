@@ -5,11 +5,16 @@ from pathlib import Path
 from typing import Optional
 from enum import Enum
 
+from .commands import simulate as simulate_cmd
+
 app = typer.Typer(
     name="crabml",
     help="Fast phylogenetic analysis for detecting positive selection",
     no_args_is_help=True,
 )
+
+# Add simulate subcommand
+app.add_typer(simulate_cmd.app, name="simulate")
 
 
 class TestType(str, Enum):
