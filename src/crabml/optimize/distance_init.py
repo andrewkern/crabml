@@ -27,25 +27,21 @@ def compute_pairwise_distances(alignment: Alignment) -> np.ndarray:
         Matrix of pairwise distances (n_species x n_species)
     """
     n_seqs = alignment.n_species
+    sequences = alignment.sequences  # shape: (n_seqs, n_sites)
     distances = np.zeros((n_seqs, n_seqs))
+
+    # Precompute valid site mask (non-gap codons)
+    valid_mask = (sequences >= 0) & (sequences < 61)
 
     for i in range(n_seqs):
         for j in range(i + 1, n_seqs):
-            seq_i = alignment.sequences[i]
-            seq_j = alignment.sequences[j]
-
-            # Count valid sites and differences
-            valid_sites = 0
-            differences = 0
-
-            for k in range(alignment.n_sites):
-                # Skip gaps (encoded as negative or special values)
-                if seq_i[k] >= 0 and seq_j[k] >= 0 and seq_i[k] < 61 and seq_j[k] < 61:
-                    valid_sites += 1
-                    if seq_i[k] != seq_j[k]:
-                        differences += 1
+            # Use numpy vectorization for site comparisons
+            both_valid = valid_mask[i] & valid_mask[j]
+            valid_sites = both_valid.sum()
 
             if valid_sites > 0:
+                # Count differences at valid sites
+                differences = ((sequences[i] != sequences[j]) & both_valid).sum()
                 p_dist = differences / valid_sites
 
                 # Jukes-Cantor correction for multiple substitutions
