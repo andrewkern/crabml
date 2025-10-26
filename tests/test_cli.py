@@ -191,7 +191,7 @@ class TestCLISiteModel:
             "-s", str(lysozyme_small_files["sequences"]),
             "-t", str(lysozyme_tree_file),
             "--test", "m7m8",
-            "--maxiter", "50",
+            "--maxiter", "100",
             "--format", "json",
             "--output", str(output_file),
             "--quiet"
@@ -215,7 +215,7 @@ class TestCLISiteModel:
             "-s", str(lysozyme_small_files["sequences"]),
             "-t", str(lysozyme_tree_file),
             "--test", "m7m8",
-            "--maxiter", "50",
+            "--maxiter", "100",
             "--format", "tsv",
             "--output", str(output_file),
             "--quiet"
@@ -228,7 +228,7 @@ class TestCLISiteModel:
         content = output_file.read_text()
         lines = content.strip().split('\n')
         assert len(lines) >= 2  # header + at least one data row
-        assert "site-model" in lines[0]
+        assert "test" in lines[0]  # Column header
         assert "pvalue" in lines[0]
 
 
@@ -253,7 +253,7 @@ class TestCLIBranchSite:
 
         # Should fail because tree has no branch labels
         assert result.exit_code == 1
-        assert "branch labels" in result.stdout.lower()
+        assert "branch labels" in result.output.lower()
 
 
 class TestCLIOutputFormats:

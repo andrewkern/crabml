@@ -4,10 +4,25 @@ import sys
 import json
 from pathlib import Path
 from typing import Optional
+import numpy as np
 
 from crabml.analysis import positive_selection
 from crabml.io.sequences import Alignment
 from crabml.io.trees import Tree
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles numpy types."""
+    def default(self, obj):
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
 
 
 def run_test(
@@ -192,7 +207,7 @@ def _format_json(results: dict, alpha: float) -> str:
             output_dict[key]['significant'] = test_result.significant(alpha)
             output_dict[key]['alpha'] = alpha
 
-    return json.dumps(output_dict, indent=2)
+    return json.dumps(output_dict, indent=2, cls=NumpyEncoder)
 
 
 def _format_tsv(results: dict, alpha: float) -> str:

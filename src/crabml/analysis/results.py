@@ -5,6 +5,7 @@ Result objects for hypothesis tests.
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 import json
+import numpy as np
 from .lrt import calculate_lrt
 
 if TYPE_CHECKING:
@@ -15,6 +16,20 @@ try:
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles numpy types."""
+    def default(self, obj):
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
 
 
 @dataclass
@@ -280,7 +295,7 @@ class LRTResult:
         >>> json_str = result.to_json()
         """
         result_dict = self.to_dict()
-        json_str = json.dumps(result_dict, indent=indent)
+        json_str = json.dumps(result_dict, indent=indent, cls=NumpyEncoder)
 
         if filepath:
             with open(filepath, 'w') as f:

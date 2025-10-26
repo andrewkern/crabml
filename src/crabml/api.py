@@ -10,6 +10,7 @@ from typing import Dict, Any, Optional, List, Union
 from pathlib import Path
 import json
 import warnings
+import numpy as np
 
 from .io.sequences import Alignment
 from .io.trees import Tree
@@ -18,6 +19,20 @@ from .optimize.optimizer import (
     M7Optimizer, M8Optimizer, M8aOptimizer
 )
 from .optimize.branch import BranchModelOptimizer
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles numpy types."""
+    def default(self, obj):
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
 from .optimize.branch_site import BranchSiteModelAOptimizer
 
 
@@ -108,7 +123,7 @@ class ModelResultBase:
         >>> json_str = result.to_json()
         """
         result_dict = self.to_dict()
-        json_str = json.dumps(result_dict, indent=indent)
+        json_str = json.dumps(result_dict, indent=indent, cls=NumpyEncoder)
 
         if filepath:
             with open(filepath, 'w') as f:
