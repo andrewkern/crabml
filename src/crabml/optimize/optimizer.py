@@ -166,6 +166,18 @@ class M0Optimizer:
         if self.optimize_branch_lengths:
             # Start with current branch lengths from tree
             init_branch_lengths = [node.branch_length for node in self.branch_nodes]
+
+            # Check if all branch lengths are zero or very small (e.g., tree has no branch lengths)
+            # In this case, add small random perturbations to break symmetry
+            # This helps avoid bad local optima on different CPU architectures
+            max_bl = max(init_branch_lengths)
+            if max_bl < 0.001:
+                # Use a fixed seed for reproducibility across machines
+                rng = np.random.default_rng(seed=42)
+                # Add random perturbations in range [0.001, 0.01]
+                init_branch_lengths = [0.001 + rng.uniform(0, 0.009) for _ in init_branch_lengths]
+                print(f"Warning: Tree has no branch lengths. Using random initialization.")
+
             init_params = np.array(
                 [np.log(init_kappa), np.log(init_omega)] +
                 [np.log(max(bl, 0.001)) for bl in init_branch_lengths]
