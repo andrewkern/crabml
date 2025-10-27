@@ -761,8 +761,8 @@ def _parse_m7_result(
         lnL=lnL,
         kappa=kappa,
         params={
-            'p_beta': p_beta,
-            'q_beta': q_beta,
+            'p': p_beta,  # Use 'p' for consistency
+            'q': q_beta,  # Use 'q' for consistency
         },
         tree=tree,
         alignment=alignment,
@@ -793,8 +793,8 @@ def _parse_m8_result(
         kappa=kappa,
         params={
             'p0': p0,
-            'p_beta': p_beta,
-            'q_beta': q_beta,
+            'p': p_beta,  # Use 'p' for consistency with M7/M8a
+            'q': q_beta,  # Use 'q' for consistency with M7/M8a
             'omega_s': omega_s,
         },
         tree=tree,
@@ -827,8 +827,9 @@ def _parse_m8a_result(
         kappa=kappa,
         params={
             'p0': p0,
-            'p_beta': p_beta,
-            'q_beta': q_beta,
+            'p': p_beta,  # Use 'p' for consistency with M7/M8
+            'q': q_beta,  # Use 'q' for consistency with M7/M8
+            'omega_s': 1.0,  # Fixed at 1.0 for M8a (not optimized)
         },
         tree=tree,
         alignment=alignment,

@@ -152,52 +152,62 @@ class PAMLRunner:
 
         elif model == "M1a":
             # Parse p0 and omegas
-            # Look for site class proportions and omegas in the output
-            prop_match = re.search(r'proportion\s+([\d.]+)\s+([\d.]+)', content)
-            if prop_match:
-                results["parameters"]["p0"] = float(prop_match.group(1))
+            # Format: "p:   0.94583  0.05417" and "w:   0.30548  1.00000"
+            prop_line_match = re.search(r'^p:\s+(.*)', content, re.MULTILINE)
+            if prop_line_match:
+                prop_values = prop_line_match.group(1).split()
+                if len(prop_values) >= 1:
+                    results["parameters"]["p0"] = float(prop_values[0])
 
-            # Find omega values
-            omega_matches = re.findall(r'w:\s+([\d.]+)', content)
-            if len(omega_matches) >= 2:
-                results["parameters"]["omega0"] = float(omega_matches[0])
+            omega_line_match = re.search(r'^w:\s+(.*)', content, re.MULTILINE)
+            if omega_line_match:
+                omega_values = omega_line_match.group(1).split()
+                if len(omega_values) >= 1:
+                    results["parameters"]["omega0"] = float(omega_values[0])
                 # omega1 should be 1.0 for M1a
 
         elif model == "M2a":
             # Parse proportions and omegas
-            prop_match = re.search(r'proportion\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)', content)
-            if prop_match:
-                results["parameters"]["p0"] = float(prop_match.group(1))
-                results["parameters"]["p1"] = float(prop_match.group(2))
+            # Format: "p:   0.91223  0.04642  0.04135" and "w:   0.41334  1.00000  1.00000"
+            prop_line_match = re.search(r'^p:\s+(.*)', content, re.MULTILINE)
+            if prop_line_match:
+                prop_values = prop_line_match.group(1).split()
+                if len(prop_values) >= 2:
+                    results["parameters"]["p0"] = float(prop_values[0])
+                    results["parameters"]["p1"] = float(prop_values[1])
 
-            omega_matches = re.findall(r'w:\s+([\d.]+)', content)
-            if len(omega_matches) >= 3:
-                results["parameters"]["omega0"] = float(omega_matches[0])
-                results["parameters"]["omega2"] = float(omega_matches[2])
+            omega_line_match = re.search(r'^w:\s+(.*)', content, re.MULTILINE)
+            if omega_line_match:
+                omega_values = omega_line_match.group(1).split()
+                if len(omega_values) >= 3:
+                    results["parameters"]["omega0"] = float(omega_values[0])
+                    results["parameters"]["omega2"] = float(omega_values[2])
 
         elif model == "M7":
             # Parse beta parameters p and q
-            beta_match = re.search(r'p:\s+([\d.]+)\s+q:\s+([\d.]+)', content)
+            # Format: " p =  28.23833  q =  98.71966"
+            beta_match = re.search(r'p\s*=\s+([\d.]+)\s+q\s*=\s+([\d.]+)', content)
             if beta_match:
                 results["parameters"]["p"] = float(beta_match.group(1))
                 results["parameters"]["q"] = float(beta_match.group(2))
 
         elif model in ["M8", "M8a"]:
             # Parse p0, beta parameters, and omega_s
-            prop_match = re.search(r'p0=\s+([\d.]+)', content)
-            if prop_match:
-                results["parameters"]["p0"] = float(prop_match.group(1))
+            # Format: "  p0 =   0.99999  p =   2.62668 q =   2.49048"
+            param_line_match = re.search(r'p0\s*=\s+([\d.]+)\s+p\s*=\s+([\d.]+)\s+q\s*=\s+([\d.]+)', content)
+            if param_line_match:
+                results["parameters"]["p0"] = float(param_line_match.group(1))
+                results["parameters"]["p"] = float(param_line_match.group(2))
+                results["parameters"]["q"] = float(param_line_match.group(3))
 
-            beta_match = re.search(r'p:\s+([\d.]+)\s+q:\s+([\d.]+)', content)
-            if beta_match:
-                results["parameters"]["p"] = float(beta_match.group(1))
-                results["parameters"]["q"] = float(beta_match.group(2))
-
-            # Find the additional omega class
-            # Look for w: values, the last one should be omega_s
-            omega_matches = re.findall(r'w:\s+([\d.]+)', content)
-            if omega_matches:
-                results["parameters"]["omega_s"] = float(omega_matches[-1])
+            # Find the additional omega class (omega_s)
+            # The line "w:   value1  value2  ... valueN" contains all omega values
+            # The last value is omega_s (the additional selection class)
+            omega_line_match = re.search(r'^w:\s+(.*)', content, re.MULTILINE)
+            if omega_line_match:
+                omega_values = omega_line_match.group(1).split()
+                if omega_values:
+                    results["parameters"]["omega_s"] = float(omega_values[-1])
 
         return results
 

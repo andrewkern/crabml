@@ -10,12 +10,12 @@ simulation:
   sequence_lengths: [200, 400, 600]
   genetic_code: 0
   random_seed_start: 42
-  parallel_jobs: 60  # Number of parallel simulation jobs
+  parallel_jobs: 60 # Number of parallel simulation jobs
 
   # Tree generation
   tree_length_min: 0.5
   tree_length_max: 5.0
-  branch_length_distribution: exponential  # exponential or uniform
+  branch_length_distribution: exponential # exponential or uniform
 
   # Fixed tree topologies (will be scaled to different total lengths)
   tree_topologies:
@@ -69,28 +69,28 @@ parameter_ranges:
     p0: [0.7, 0.9]
     p: [0.5, 3.0]
     q: [1.0, 8.0]
-    omega_s: 1.0  # Fixed
+    omega_s: 1.0 # Fixed
     ncateg: 10
 
 # PAML execution settings
 paml:
   executable: "../paml/src/codeml"
-  timeout: 600  # seconds (10 minutes for complex models like M7/M8)
+  timeout: 800 # seconds (12 minutes for complex models like M7/M8)
   maxiter: 1000
-  parallel_jobs: 60  # Number of parallel PAML runs
+  parallel_jobs: 60 # Number of parallel PAML runs
 
 # crabML execution settings
 crabml:
   executable: "crabml"
-  timeout: 600  # seconds (10 minutes for complex models like M7/M8)
+  timeout: 600 # seconds (10 minutes for complex models like M7/M8)
   maxiter: 1000
-  parallel: false  # Run sequentially for accurate timing
+  parallel: false # Run sequentially for accurate timing
 
 # Comparison thresholds
 thresholds:
-  lnL_tolerance: 0.1  # Maximum acceptable |ΔlnL|
-  param_correlation_min: 0.98  # Minimum r for parameters
-  outlier_sigma: 3  # Standard deviations for outlier detection
+  lnL_tolerance: 0.1 # Maximum acceptable |ΔlnL|
+  param_correlation_min: 0.98 # Minimum r for parameters
+  outlier_sigma: 3 # Standard deviations for outlier detection
 
 # Visualization settings
 visualization:
