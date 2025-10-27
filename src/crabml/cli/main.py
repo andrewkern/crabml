@@ -21,6 +21,7 @@ class TestType(str, Enum):
     """Type of positive selection test to run."""
     M1M2 = "m1m2"
     M7M8 = "m7m8"
+    M8A_M8 = "m8am8"
     BOTH = "both"
     ALL = "all"
 
@@ -106,10 +107,12 @@ def site_model(
     Runs standard likelihood ratio tests:
     - M1a (Nearly Neutral) vs M2a (Positive Selection)
     - M7 (Beta) vs M8 (Beta + positive selection)
+    - M8a (Beta + neutral) vs M8 (uses 50:50 mixture chi-square)
 
     Example:
         crabml site-model -s alignment.fasta -t tree.nwk
         crabml site-model -s alignment.fasta -t tree.nwk --test m7m8 --alpha 0.01
+        crabml site-model -s alignment.fasta -t tree.nwk --test m8am8 --alpha 0.05
     """
     from .commands.test import run_test
 

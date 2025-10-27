@@ -14,12 +14,27 @@ Available simulators:
 - M2aSimulator: Positive selection model (3 classes)
 - M7Simulator: Beta distribution model
 - M8Simulator: Beta + positive selection model
+- M8aSimulator: Beta + neutral model (null for M8a vs M8 test)
 """
 
 from .base import SequenceSimulator
-from .codon import M0CodonSimulator
+from .codon import (
+    M0CodonSimulator,
+    SiteClassCodonSimulator,
+    M1aSimulator,
+    M2aSimulator,
+    M7Simulator,
+    M8Simulator,
+    M8aSimulator,
+)
 
 __all__ = [
     'SequenceSimulator',
     'M0CodonSimulator',
+    'SiteClassCodonSimulator',
+    'M1aSimulator',
+    'M2aSimulator',
+    'M7Simulator',
+    'M8Simulator',
+    'M8aSimulator',
 ]

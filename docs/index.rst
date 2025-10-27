@@ -6,17 +6,19 @@ crabML Documentation
 Features
 --------
 
-* **Command-Line Interface**: Simple ``crabml`` command with four analysis modes
+* **Command-Line Interface**: Simple ``crabml`` command with five analysis modes
 
   - ``site-model``: Site-class model tests (M1a vs M2a, M7 vs M8)
   - ``branch-model``: Branch model tests (multi-ratio, free-ratio)
   - ``branch-site``: Branch-site model tests
   - ``fit``: Fit single models
+  - ``simulate``: Generate synthetic sequences under evolutionary models
 
 * **Unified Python API**: Simple functions for all model types with specialized result classes
 * **Site-class models**: M0, M1a, M2a, M3, M4, M5, M6, M7, M8, M8a, M9
 * **Branch models**: Free-ratio and multi-ratio models for lineage-specific selection
 * **Branch-site models**: Model A (test for positive selection on specific lineages)
+* **Sequence simulation**: Generate test data under M0, M1a, M2a, M7, M8 models
 * **Hypothesis testing**: Complete LRT framework for detecting positive selection
 * **High-performance Rust backend**: 300-500x faster than NumPy, 3-10x faster than PAML
 * **PAML validation**: All models produce exact numerical matches
@@ -39,6 +41,10 @@ Command-Line Interface:
 
    # Fit a single model
    crabml fit -m M0 -s alignment.fasta -t tree.nwk
+
+   # Simulate sequences for validation
+   crabml simulate m2a -t tree.nwk -o sim.fasta -l 1000 \
+       --p0 0.5 --p1 0.3 --omega0 0.1 --omega2 2.5
 
 Python API - Fit a single model:
 
@@ -71,6 +77,7 @@ Contents
    user_guide/cli
    user_guide/models
    user_guide/hypothesis_testing
+   user_guide/simulation
    user_guide/advanced
 
 .. toctree::
@@ -82,6 +89,7 @@ Contents
    api/io
    api/optimize
    api/models
+   api/simulate
    api/core
 
 .. toctree::
