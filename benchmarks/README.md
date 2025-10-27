@@ -125,7 +125,7 @@ For each model:
 - Generate sequences using `crabml simulate`
 - Save: FASTA, params.json, tree files
 - Record metadata (seed, true parameters)
-- Run in parallel (30 jobs simultaneously) for faster generation
+- Run in parallel (60 jobs simultaneously) for faster generation
 
 ### Phase 2: PAML Analysis
 ```bash
@@ -137,7 +137,7 @@ For each dataset:
 - Run `codeml` with 600s (10 minute) timeout
 - Parse output: lnL, parameters, convergence
 - Save structured JSON
-- Run in parallel (30 jobs simultaneously on 80-core machine)
+- Run in parallel (60 jobs simultaneously on 80-core machine)
 
 ### Phase 3: crabML Analysis
 ```bash
@@ -179,13 +179,13 @@ Generate plots:
 
 **Simulation**:
 - Single-threaded per dataset
-- Run 30 instances in parallel (configurable)
-- Utilizes 30/80 cores simultaneously
+- Run 60 instances in parallel (configurable)
+- Utilizes 60/80 cores simultaneously
 
 **PAML**:
 - Single-threaded per dataset
-- Run 30 instances in parallel (configurable)
-- Utilizes 30/80 cores simultaneously
+- Run 60 instances in parallel (configurable)
+- Utilizes 60/80 cores simultaneously
 
 **crabML**:
 - Multi-threaded via Rust/Rayon
