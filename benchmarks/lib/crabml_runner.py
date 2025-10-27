@@ -65,8 +65,9 @@ class CrabMLRunner:
             "-m", model,
             "-s", str(seq_file),
             "-t", str(tree_file),
-            "--json",  # Request JSON output
-            "--maxiter", str(self.maxiter)
+            "--format", "json",  # Request JSON output
+            "--maxiter", str(self.maxiter),
+            "--quiet"  # Suppress progress output
         ]
 
         # Run crabML
