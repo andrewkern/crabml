@@ -93,17 +93,26 @@ class CrabMLRunner:
                 }
             else:
                 # Parse JSON output from stdout
+                # Extract JSON from output (may have progress messages before it)
                 try:
-                    output_data = json.loads(result.stdout)
-                    parsed = self.parse_output(output_data, model, runtime)
-                except json.JSONDecodeError as e:
+                    stdout = result.stdout.strip()
+                    # Find the JSON block (starts with { and ends with })
+                    json_start = stdout.rfind('{')
+                    json_end = stdout.rfind('}')
+                    if json_start != -1 and json_end != -1:
+                        json_str = stdout[json_start:json_end+1]
+                        output_data = json.loads(json_str)
+                        parsed = self.parse_output(output_data, model, runtime)
+                    else:
+                        raise ValueError("No JSON found in output")
+                except (json.JSONDecodeError, ValueError) as e:
                     parsed = {
                         "lnL": None,
                         "converged": False,
                         "parameters": {},
                         "runtime": runtime,
                         "timeout": False,
-                        "error": f"JSON parse error: {e}"
+                        "error": f"JSON parse error: {e}\nOutput: {result.stdout[:500]}"
                     }
 
         except subprocess.TimeoutExpired:
@@ -173,12 +182,13 @@ class CrabMLRunner:
             results["lnL"] = float(output_data["log_likelihood"])
             results["converged"] = True
 
-        # Extract parameters based on model
-        params = output_data.get("parameters", {})
+        # Extract parameters - crabML uses "params" (not "parameters")
+        # and has kappa at top level
+        params = output_data.get("params", {})
 
-        # Common parameter: kappa
-        if "kappa" in params:
-            results["parameters"]["kappa"] = float(params["kappa"])
+        # Common parameter: kappa (at top level in crabML output)
+        if "kappa" in output_data:
+            results["parameters"]["kappa"] = float(output_data["kappa"])
 
         # Model-specific parameters
         if model == "M0":
