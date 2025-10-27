@@ -117,7 +117,7 @@ ncateg: 10 (fixed)
 
 ### Phase 1: Simulation
 ```bash
-python run_benchmark.py simulate --models M0 M1a M2a M7 M8 M8a
+python run_benchmark.py simulate --models M0 M1a M2a M7 M8 M8a --parallel
 ```
 
 For each model:
@@ -125,6 +125,7 @@ For each model:
 - Generate sequences using `crabml simulate`
 - Save: FASTA, params.json, tree files
 - Record metadata (seed, true parameters)
+- Run in parallel (30 jobs simultaneously) for faster generation
 
 ### Phase 2: PAML Analysis
 ```bash
@@ -175,9 +176,14 @@ Generate plots:
 
 ## Parallelization Strategy
 
+**Simulation**:
+- Single-threaded per dataset
+- Run 30 instances in parallel (configurable)
+- Utilizes 30/80 cores simultaneously
+
 **PAML**:
-- Single-threaded
-- Run 30 instances in parallel via GNU parallel
+- Single-threaded per dataset
+- Run 30 instances in parallel (configurable)
 - Utilizes 30/80 cores simultaneously
 
 **crabML**:
@@ -222,25 +228,25 @@ M0,001,tree1,300,2.34,0.45,-1234.56,-1234.58,2.35,2.36,0.44,0.45,True,True,5.2,0
 ## Usage Examples
 
 ```bash
-# Run complete benchmark for all models
-python run_benchmark.py all
+# Run complete benchmark for all models with parallel simulation and PAML
+python run_benchmark.py all --parallel
 
 # Run specific phases
-python run_benchmark.py simulate
+python run_benchmark.py simulate --parallel
 python run_benchmark.py run-paml --parallel
 python run_benchmark.py run-crabml
 python run_benchmark.py compare
 python run_benchmark.py visualize
 
 # Run for specific models only
-python run_benchmark.py all --models M0 M1a M2a
+python run_benchmark.py all --models M0 M1a M2a --parallel
 
 # Resume after failure
-python run_benchmark.py run-paml --resume
+python run_benchmark.py run-paml --parallel --resume
 
 # Clean and restart
 python run_benchmark.py clean
-python run_benchmark.py all
+python run_benchmark.py all --parallel
 ```
 
 ## Error Handling

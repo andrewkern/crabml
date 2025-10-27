@@ -10,6 +10,7 @@ simulation:
   sequence_lengths: [200, 400, 600]
   genetic_code: 0
   random_seed_start: 42
+  parallel_jobs: 30  # Number of parallel simulation jobs
 
   # Tree generation
   tree_length_min: 0.5

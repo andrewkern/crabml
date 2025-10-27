@@ -35,7 +35,29 @@ def load_config(config_file: Path = None) -> dict:
     return config
 
 
-def phase_simulate(config: dict, models: list = None):
+def simulate_single(args):
+    """Simulate a single dataset (for parallel execution)."""
+    config, model, tree_newick, tree_id, params, seq_length, output_dir, rep_id = args
+
+    simulator = BenchmarkSimulator(config)
+
+    try:
+        metadata = simulator.generate_dataset(
+            model=model,
+            replicate_id=rep_id,
+            tree_newick=tree_newick,
+            tree_id=tree_id,
+            params=params,
+            seq_length=seq_length,
+            output_dir=output_dir
+        )
+        return (model, rep_id, metadata)
+    except Exception as e:
+        print(f"ERROR in {model} rep{rep_id:03d}: {e}")
+        return (model, rep_id, None)
+
+
+def phase_simulate(config: dict, models: list = None, parallel: bool = True):
     """Phase 1: Generate simulated datasets."""
     print("=" * 80)
     print("PHASE 1: SIMULATION")
@@ -46,9 +68,72 @@ def phase_simulate(config: dict, models: list = None):
 
     data_dir = Path(__file__).parent / "data"
     simulator = BenchmarkSimulator(config)
+    n_replicates = config['n_replicates']
+    seq_lengths = config['simulation']['sequence_lengths']
 
-    datasets = simulator.generate_all_datasets(models, data_dir)
-    print(f"\nGenerated {len(datasets)} datasets total.")
+    # Generate trees once
+    trees = simulator.generate_trees()
+    tree_ids = list(trees.keys())
+
+    # Collect all simulation tasks
+    tasks = []
+    for model in models:
+        model_dir = data_dir / model
+        rep_id = 1
+        for i in range(n_replicates):
+            # Cycle through trees and sequence lengths
+            tree_id = tree_ids[i % len(tree_ids)]
+            seq_length = seq_lengths[i % len(seq_lengths)]
+            tree_newick = trees[tree_id]
+
+            # Sample parameters
+            params = simulator.sample_parameters(model)
+
+            tasks.append((
+                config, model, tree_newick, tree_id, params,
+                seq_length, model_dir, rep_id
+            ))
+            rep_id += 1
+
+    print(f"Simulating {len(tasks)} datasets...")
+
+    if parallel:
+        n_jobs = config.get('simulation', {}).get('parallel_jobs', 30)
+        print(f"Using {n_jobs} parallel jobs")
+
+        with ProcessPoolExecutor(max_workers=n_jobs) as executor:
+            futures = [executor.submit(simulate_single, task) for task in tasks]
+
+            completed = 0
+            success = 0
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    model, rep_id, metadata = result
+                    completed += 1
+                    if metadata:
+                        success += 1
+                        print(f"  [{completed}/{len(tasks)}] {model} rep{rep_id:03d}: "
+                              f"{metadata['tree_id']}, {metadata['sequence_length']} codons")
+                    else:
+                        print(f"  [{completed}/{len(tasks)}] {model} rep{rep_id:03d}: FAILED")
+
+        print(f"\nGenerated {success}/{len(tasks)} datasets total.")
+    else:
+        # Sequential execution
+        success = 0
+        for i, task in enumerate(tasks, 1):
+            result = simulate_single(task)
+            if result:
+                model, rep_id, metadata = result
+                if metadata:
+                    success += 1
+                    print(f"  [{i}/{len(tasks)}] {model} rep{rep_id:03d}: "
+                          f"{metadata['tree_id']}, {metadata['sequence_length']} codons")
+                else:
+                    print(f"  [{i}/{len(tasks)}] {model} rep{rep_id:03d}: FAILED")
+
+        print(f"\nGenerated {success}/{len(tasks)} datasets total.")
 
 
 def run_paml_single(args):
@@ -311,7 +396,7 @@ def main():
         "--parallel",
         action="store_true",
         default=False,
-        help="Run PAML in parallel (default: False)"
+        help="Run simulation and PAML in parallel (default: False)"
     )
 
     parser.add_argument(
@@ -333,7 +418,7 @@ def main():
 
     # Execute command
     if args.command == "simulate":
-        phase_simulate(config, models)
+        phase_simulate(config, models, parallel=args.parallel)
 
     elif args.command == "run-paml":
         phase_run_paml(config, models, parallel=args.parallel, resume=args.resume)
@@ -348,7 +433,7 @@ def main():
         phase_visualize(config, models)
 
     elif args.command == "all":
-        phase_simulate(config, models)
+        phase_simulate(config, models, parallel=args.parallel)
         phase_run_paml(config, models, parallel=args.parallel)
         phase_run_crabml(config, models)
         phase_compare(config, models)
