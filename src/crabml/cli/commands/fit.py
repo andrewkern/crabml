@@ -22,10 +22,17 @@ def run_fit(
     init_with_m0: bool,
 ):
     """Fit a single model."""
-    # Validate model name
+    # Validate model name (case-insensitive)
     valid_models = ['M0', 'M1a', 'M2a', 'M3', 'M7', 'M8', 'M8a']
-    model_upper = model.upper()
-    if model_upper not in valid_models:
+
+    # Find matching model (case-insensitive)
+    model_upper = None
+    for valid in valid_models:
+        if model.upper() == valid.upper():
+            model_upper = valid
+            break
+
+    if model_upper is None:
         print(f"Error: Unknown model '{model}'", file=sys.stderr)
         print(f"Valid models: {', '.join(valid_models)}", file=sys.stderr)
         sys.exit(1)

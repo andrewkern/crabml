@@ -1175,11 +1175,15 @@ def optimize_model(
     # 4. Create optimizer
     optimizer_class, parser_func = OPTIMIZER_REGISTRY[model_upper]
 
+    # Separate init_with_m0 from other optimizer_kwargs
+    init_with_m0 = optimizer_kwargs.pop('init_with_m0', True)  # Default True
+
     optimizer = optimizer_class(
         align,
         tree_obj,
         use_f3x4=use_f3x4,
-        optimize_branch_lengths=optimize_branch_lengths
+        optimize_branch_lengths=optimize_branch_lengths,
+        init_with_m0=init_with_m0
     )
 
     # 5. Run optimization
