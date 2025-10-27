@@ -95,12 +95,31 @@ class CrabMLRunner:
                 # Parse JSON output from stdout
                 # Extract JSON from output (may have progress messages before it)
                 try:
-                    stdout = result.stdout.strip()
-                    # Find the JSON block (starts with { and ends with })
-                    json_start = stdout.rfind('{')
-                    json_end = stdout.rfind('}')
-                    if json_start != -1 and json_end != -1:
-                        json_str = stdout[json_start:json_end+1]
+                    stdout = result.stdout
+                    # Find the last complete JSON object
+                    # Look for the pattern where a line starts with { (beginning of JSON)
+                    lines = stdout.split('\n')
+                    json_lines = []
+                    in_json = False
+                    brace_count = 0
+
+                    for line in lines:
+                        stripped = line.strip()
+                        if not in_json and stripped.startswith('{'):
+                            # Start of JSON object
+                            in_json = True
+                            brace_count = 0
+
+                        if in_json:
+                            json_lines.append(line)
+                            # Count braces to find end of JSON
+                            brace_count += line.count('{') - line.count('}')
+                            if brace_count == 0:
+                                # JSON object is complete
+                                break
+
+                    if json_lines:
+                        json_str = '\n'.join(json_lines)
                         output_data = json.loads(json_str)
                         parsed = self.parse_output(output_data, model, runtime)
                     else:
