@@ -6,6 +6,7 @@ Run simulations, analyses, comparisons, and visualizations.
 """
 
 import argparse
+import json
 import shutil
 import sys
 import yaml
@@ -183,11 +184,20 @@ def phase_run_paml(config: dict, models: list = None, parallel: bool = True, res
     for model in models:
         model_results_dir = results_dir / "paml" / model
         for rep_id in range(1, n_replicates + 1):
-            # Check if already completed (for resume)
+            # Check if already completed successfully (for resume)
             if resume:
                 results_file = model_results_dir / f"rep{rep_id:03d}_results.json"
                 if results_file.exists():
-                    continue
+                    # Check if it actually converged
+                    try:
+                        with open(results_file, 'r') as f:
+                            result_data = json.load(f)
+                        if result_data.get("converged", False):
+                            # Skip only if converged successfully
+                            continue
+                    except:
+                        # If we can't read the file, re-run it
+                        pass
 
             tasks.append((config, model, data_dir, results_dir, rep_id))
 
@@ -250,12 +260,21 @@ def phase_run_crabml(config: dict, models: list = None, resume: bool = False):
         model_results_dir = results_dir / "crabml" / model
 
         for rep_id in range(1, n_replicates + 1):
-            # Check if already completed (for resume)
+            # Check if already completed successfully (for resume)
             if resume:
                 results_file = model_results_dir / f"rep{rep_id:03d}_crabml.json"
                 if results_file.exists():
-                    completed += 1
-                    continue
+                    # Check if it actually converged
+                    try:
+                        with open(results_file, 'r') as f:
+                            result_data = json.load(f)
+                        if result_data.get("converged", False):
+                            # Skip only if converged successfully
+                            completed += 1
+                            continue
+                    except:
+                        # If we can't read the file, re-run it
+                        pass
 
             seq_file = model_data_dir / f"rep{rep_id:03d}.fasta"
             tree_file = model_data_dir / f"rep{rep_id:03d}.nwk"
