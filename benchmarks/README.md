@@ -134,18 +134,19 @@ python run_benchmark.py run-paml --models M0 M1a M2a M7 M8 M8a --parallel
 
 For each dataset:
 - Generate PAML control file
-- Run `codeml` with 60s timeout
+- Run `codeml` with 600s (10 minute) timeout
 - Parse output: lnL, parameters, convergence
 - Save structured JSON
 - Run in parallel (30 jobs simultaneously on 80-core machine)
 
 ### Phase 3: crabML Analysis
 ```bash
-python run_benchmark.py run-crabml --models M0 M1a M2a M7 M8 M8a --sequential
+python run_benchmark.py run-crabml --models M0 M1a M2a M7 M8 M8a
 ```
 
 For each dataset:
 - Run `crabml fit -m {MODEL}`
+- 600s (10 minute) timeout per analysis
 - Record runtime, lnL, parameters
 - Save structured JSON
 - Run sequentially for accurate performance measurement

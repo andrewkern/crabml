@@ -75,14 +75,14 @@ parameter_ranges:
 # PAML execution settings
 paml:
   executable: "../paml/src/codeml"
-  timeout: 60  # seconds
+  timeout: 600  # seconds (10 minutes for complex models like M7/M8)
   maxiter: 1000
   parallel_jobs: 30  # Number of parallel PAML runs
 
 # crabML execution settings
 crabml:
   executable: "crabml"
-  timeout: 60  # seconds
+  timeout: 600  # seconds (10 minutes for complex models like M7/M8)
   maxiter: 1000
   parallel: false  # Run sequentially for accurate timing
 
