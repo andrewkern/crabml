@@ -143,7 +143,6 @@ class BenchmarkSimulator:
             "-o", str(fasta_file),
             "-l", str(seq_length),
             "--seed", str(self.config['simulation']['random_seed_start'] + replicate_id),
-            "--no-output-site-classes",  # Don't need site class files
             "-q"  # Quiet
         ]
 
