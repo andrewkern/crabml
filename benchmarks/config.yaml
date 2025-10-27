@@ -74,7 +74,7 @@ parameter_ranges:
 
 # PAML execution settings
 paml:
-  executable: "../paml/bin/codeml"
+  executable: "../paml/src/codeml"
   timeout: 60  # seconds
   maxiter: 1000
   parallel_jobs: 30  # Number of parallel PAML runs
