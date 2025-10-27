@@ -482,7 +482,8 @@ def positive_selection(
         Which test(s) to run:
         - 'M1a_vs_M2a' or 'm1a_vs_m2a': Test M1a vs M2a only
         - 'M7_vs_M8' or 'm7_vs_m8': Test M7 vs M8 only
-        - 'both': Run both tests (default)
+        - 'M8a_vs_M8' or 'm8a_vs_m8': Test M8a vs M8 only (50:50 mixture)
+        - 'both': Run both M1a vs M2a and M7 vs M8 tests (default)
     verbose : bool, default=True
         Print optimization progress and results
 
@@ -563,8 +564,11 @@ def positive_selection(
     elif test in ('m7vsm8', 'm7vm8'):
         return m7_vs_m8(alignment, tree, verbose=verbose)
 
+    elif test in ('m8avsm8', 'm8avm8'):
+        return m8a_vs_m8(alignment, tree, verbose=verbose)
+
     else:
         raise ValueError(
             f"Unknown test: '{test}'. "
-            "Must be 'M1a_vs_M2a', 'M7_vs_M8', or 'both'."
+            "Must be 'M1a_vs_M2a', 'M7_vs_M8', 'M8a_vs_M8', or 'both'."
         )

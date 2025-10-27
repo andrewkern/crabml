@@ -6,12 +6,13 @@ crabML provides a streamlined command-line interface for common analyses. The ``
 Overview
 --------
 
-The CLI provides four main commands:
+The CLI provides five main commands:
 
 * ``crabml site-model``: Run site-class model tests (M1a vs M2a, M7 vs M8)
 * ``crabml branch-model``: Run branch model tests (multi-ratio, free-ratio)
 * ``crabml branch-site``: Run branch-site model tests
 * ``crabml fit``: Fit single codon substitution models
+* ``crabml simulate``: Generate synthetic sequences under evolutionary models
 
 All commands support multiple output formats (text, JSON, TSV) and can write results to files.
 
@@ -27,6 +28,7 @@ Use ``--help`` to see available options for any command:
    crabml branch-model --help
    crabml branch-site --help
    crabml fit --help
+   crabml simulate --help
 
 crabml site-model
 -----------------
@@ -290,6 +292,76 @@ Options
 * ``--alpha FLOAT``: Significance threshold for test [default: 0.05]
 * ``--quiet``: Suppress progress output
 * ``--verbose``: Show detailed optimization progress
+
+crabml simulate
+---------------
+
+Generate synthetic codon sequences under various evolutionary models. Useful for validation, power analysis, and benchmarking.
+
+Basic Usage
+^^^^^^^^^^^
+
+.. code-block:: bash
+
+   # M0: Single omega model
+   crabml simulate m0 -t tree.nwk -o sim.fasta -l 1000 --omega 0.3
+
+   # M2a: Positive selection model
+   crabml simulate m2a -t tree.nwk -o sim.fasta -l 1000 \
+       --p0 0.5 --p1 0.3 --omega0 0.1 --omega2 2.5
+
+   # M7: Beta distribution
+   crabml simulate m7 -t tree.nwk -o sim.fasta -l 1000 --p 2 --q 5
+
+   # M8: Beta + positive selection
+   crabml simulate m8 -t tree.nwk -o sim.fasta -l 1000 \
+       --p0 0.8 --p 2 --q 5 --omega-s 2.5
+
+Available Models
+^^^^^^^^^^^^^^^^
+
+* ``m0``: Single omega across all sites
+* ``m1a``: Nearly neutral (purifying + neutral)
+* ``m2a``: Positive selection (purifying + neutral + positive)
+* ``m7``: Beta distribution for omega in (0,1)
+* ``m8``: Beta distribution + positive selection class
+
+Common Options
+^^^^^^^^^^^^^^
+
+* ``-t, --tree PATH``: Input tree file (Newick format with branch lengths) [required]
+* ``-o, --output PATH``: Output FASTA file [required]
+* ``-l, --length INT``: Sequence length in codons [required]
+* ``--kappa FLOAT``: Transition/transversion ratio [default: 2.0]
+* ``-r, --replicates INT``: Number of replicates to simulate [default: 1]
+* ``--seed INT``: Random seed for reproducibility
+* ``-q, --quiet``: Suppress progress messages
+
+Multiple Replicates
+^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+   # Simulate 10 replicates
+   crabml simulate m2a -t tree.nwk -o sim.fasta -l 500 \
+       --p0 0.5 --p1 0.3 --omega0 0.1 --omega2 2.5 -r 10
+
+   # Creates: sim_rep1.fasta, sim_rep2.fasta, ..., sim_rep10.fasta
+
+Outputs
+^^^^^^^
+
+For all models:
+
+* FASTA file with simulated sequences
+* ``<output>.params.json``: Parameters used for simulation
+
+For M2a and M8 (positive selection models):
+
+* ``<output>.site_classes.txt``: Site class assignments
+* ``<output>.positive_sites.txt``: Sites under positive selection (omega > 1)
+
+For detailed documentation on simulation parameters and workflows, see :doc:`simulation`.
 
 Integration with Pipelines
 ---------------------------

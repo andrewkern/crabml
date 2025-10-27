@@ -63,6 +63,8 @@ def run_test(
         test = "m1a_vs_m2a"
     elif test_type == "m7m8":
         test = "m7_vs_m8"
+    elif test_type == "m8am8":
+        test = "m8a_vs_m8"
     elif test_type == "both":
         test = "both"
     elif test_type == "all":
@@ -178,6 +180,36 @@ def _format_text(results: dict, alpha: float, quiet: bool) -> str:
             lines.append(f"  Proportion of sites under selection = {p_sel:.1%}")
         else:
             lines.append(f"Result: No significant evidence for positive selection (p > {alpha})")
+        lines.append("")
+
+    # M8a vs M8
+    if 'M8a_vs_M8' in results:
+        test_result = results['M8a_vs_M8']
+        lines.append("Test: M8a (Beta + neutral) vs M8 (Beta + positive selection)")
+        lines.append("-" * 80)
+        lines.append(f"Null (M8a):          lnL = {test_result.lnL_null:.3f}    "
+                     f"parameters = {test_result.null_params}")
+        lines.append(f"Alternative (M8):    lnL = {test_result.lnL_alt:.3f}    "
+                     f"parameters = {test_result.alt_params}")
+        lines.append("")
+        lines.append("Likelihood Ratio Test (50:50 mixture chi-square):")
+        lines.append(f"  2ΔlnL = {test_result.LRT:.2f}    "
+                     f"df = {test_result.df}    "
+                     f"p-value = {test_result.pvalue:.4f}")
+        lines.append("")
+
+        if test_result.significant(alpha):
+            omega = test_result.alt_params.get('omega_s', 'N/A')
+            p_sel = 1 - test_result.alt_params.get('p0', 0)
+            lines.append(f"Result: POSITIVE SELECTION DETECTED (p < {alpha})")
+            if omega != 'N/A':
+                lines.append(f"  ω for positive selection = {omega:.2f}")
+            lines.append(f"  Proportion of sites under selection = {p_sel:.1%}")
+        else:
+            lines.append(f"Result: No significant evidence for positive selection (p > {alpha})")
+        lines.append("")
+        lines.append("Note: This test uses a 50:50 mixture chi-square null distribution")
+        lines.append("      because ω=1 is on the boundary of the parameter space.")
         lines.append("")
 
     # Summary
