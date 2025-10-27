@@ -302,3 +302,38 @@ class Tree:
             raise ValueError("No foreground branches marked with '#1'")
 
         print(f"✓ Tree validation passed: {n_foreground} foreground branch(es) marked")
+
+    def to_newick(self) -> str:
+        """
+        Convert tree to Newick format string.
+
+        Returns
+        -------
+        str
+            Tree in Newick format
+        """
+        def node_to_newick(node: TreeNode) -> str:
+            """Recursively convert node to Newick string."""
+            # Build the subtree
+            if node.is_leaf:
+                # Leaf node: just the name
+                result = node.name if node.name else ""
+            else:
+                # Internal node: (child1,child2,...)
+                child_strings = [node_to_newick(child) for child in node.children]
+                result = f"({','.join(child_strings)})"
+                # Add internal node name if present
+                if node.name:
+                    result += node.name
+
+            # Add branch label if present
+            if node.label:
+                result += node.label
+
+            # Add branch length (except for root)
+            if node.parent is not None:
+                result += f":{node.branch_length}"
+
+            return result
+
+        return node_to_newick(self.root) + ";"
