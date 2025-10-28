@@ -46,3 +46,23 @@ package.json
 
 # PAML external directory
 paml/
+
+# Benchmark artifacts (keep infrastructure, exclude data/results)
+benchmarks/data/M*/
+benchmarks/results/
+benchmarks/plots/
+benchmarks/paml_runs/
+benchmarks/crabml_runs/
+
+# Debug and reference scripts
+check_blas.py
+reference_code/
+
+# PAML output files
+rst
+rst1
+rub
+2NG.dN
+2NG.dS
+2NG.t
+lnf

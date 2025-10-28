@@ -94,10 +94,10 @@ class TestOptimizeModel:
         result = optimize_model("M7", lysozyme_files['alignment'], lysozyme_files['tree_str'])
 
         assert result.model_name == "M7"
-        assert 'p_beta' in result.params
-        assert 'q_beta' in result.params
-        assert result.params['p_beta'] > 0
-        assert result.params['q_beta'] > 0
+        assert 'p' in result.params
+        assert 'q' in result.params
+        assert result.params['p'] > 0
+        assert result.params['q'] > 0
 
     def test_m8_optimization(self, lysozyme_files):
         """Test M8 model."""
@@ -114,8 +114,8 @@ class TestOptimizeModel:
         result = optimize_model("M8a", lysozyme_files['alignment'], lysozyme_files['tree_str'])
 
         assert result.model_name == "M8A"
-        assert 'p_beta' in result.params
-        assert 'q_beta' in result.params
+        assert 'p' in result.params
+        assert 'q' in result.params
         assert len(result.proportions) == 2
 
     def test_m3_optimization(self, lysozyme_files):

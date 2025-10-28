@@ -318,21 +318,21 @@ class SiteModelResult(ModelResultBase):
 
         elif self.model_name == 'M7':
             lines.append(f"  Beta distribution:")
-            lines.append(f"    p = {self.params['p_beta']:.4f}")
-            lines.append(f"    q = {self.params['q_beta']:.4f}")
+            lines.append(f"    p = {self.params['p']:.4f}")
+            lines.append(f"    q = {self.params['q']:.4f}")
 
         elif self.model_name == 'M8':
             lines.append(f"  Beta distribution:")
-            lines.append(f"    p = {self.params['p_beta']:.4f}")
-            lines.append(f"    q = {self.params['q_beta']:.4f}")
+            lines.append(f"    p = {self.params['p']:.4f}")
+            lines.append(f"    q = {self.params['q']:.4f}")
             lines.append(f"  Additional site class:")
             lines.append(f"    omega_s = {self.params['omega_s']:.4f}")
             lines.append(f"    proportion = {1-self.params['p0']:.4f}")
 
         elif self.model_name == 'M8A':
             lines.append(f"  Beta distribution:")
-            lines.append(f"    p = {self.params['p_beta']:.4f}")
-            lines.append(f"    q = {self.params['q_beta']:.4f}")
+            lines.append(f"    p = {self.params['p']:.4f}")
+            lines.append(f"    q = {self.params['q']:.4f}")
             lines.append(f"  Additional site class:")
             lines.append(f"    omega = 1.0000 (fixed)")
             lines.append(f"    proportion = {1-self.params['p0']:.4f}")
@@ -761,8 +761,8 @@ def _parse_m7_result(
         lnL=lnL,
         kappa=kappa,
         params={
-            'p_beta': p_beta,
-            'q_beta': q_beta,
+            'p': p_beta,  # Use 'p' for consistency
+            'q': q_beta,  # Use 'q' for consistency
         },
         tree=tree,
         alignment=alignment,
@@ -793,8 +793,8 @@ def _parse_m8_result(
         kappa=kappa,
         params={
             'p0': p0,
-            'p_beta': p_beta,
-            'q_beta': q_beta,
+            'p': p_beta,  # Use 'p' for consistency with M7/M8a
+            'q': q_beta,  # Use 'q' for consistency with M7/M8a
             'omega_s': omega_s,
         },
         tree=tree,
@@ -827,8 +827,9 @@ def _parse_m8a_result(
         kappa=kappa,
         params={
             'p0': p0,
-            'p_beta': p_beta,
-            'q_beta': q_beta,
+            'p': p_beta,  # Use 'p' for consistency with M7/M8
+            'q': q_beta,  # Use 'q' for consistency with M7/M8
+            'omega_s': 1.0,  # Fixed at 1.0 for M8a (not optimized)
         },
         tree=tree,
         alignment=alignment,
@@ -1175,11 +1176,21 @@ def optimize_model(
     # 4. Create optimizer
     optimizer_class, parser_func = OPTIMIZER_REGISTRY[model_upper]
 
+    # Separate init_with_m0 from other optimizer_kwargs
+    init_with_m0 = optimizer_kwargs.pop('init_with_m0', True)  # Default True
+
+    # Build optimizer kwargs - M0 and M3 don't accept init_with_m0
+    optimizer_init_kwargs = {
+        'use_f3x4': use_f3x4,
+        'optimize_branch_lengths': optimize_branch_lengths,
+    }
+    if model_upper not in ('M0', 'M3'):
+        optimizer_init_kwargs['init_with_m0'] = init_with_m0
+
     optimizer = optimizer_class(
         align,
         tree_obj,
-        use_f3x4=use_f3x4,
-        optimize_branch_lengths=optimize_branch_lengths
+        **optimizer_init_kwargs
     )
 
     # 5. Run optimization

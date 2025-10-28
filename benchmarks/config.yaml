@@ -1,0 +1,102 @@
+# crabML vs PAML Benchmark Configuration
+
+# Number of replicates per model
+n_replicates: 30
+
+# Simulation parameters
+simulation:
+  n_taxa: 10
+  n_tree_topologies: 3
+  sequence_lengths: [200, 400, 600]
+  genetic_code: 0
+  random_seed_start: 42
+  parallel_jobs: 60 # Number of parallel simulation jobs
+
+  # Tree generation
+  tree_length_min: 0.5
+  tree_length_max: 5.0
+  branch_length_distribution: exponential # exponential or uniform
+
+  # Fixed tree topologies (will be scaled to different total lengths)
+  tree_topologies:
+    tree1: "((A:1,B:1):1,((C:1,D:1):1,(E:1,F:1):1):1,((G:1,H:1):1,(I:1,J:1):1):1);"
+    tree2: "(((A:1,B:1):1,(C:1,D:1):1):1,((E:1,F:1):1,(G:1,H:1):1):1,(I:1,J:1):1);"
+    tree3: "((A:1,(B:1,C:1):1):1,((D:1,E:1):1,(F:1,G:1):1):1,(H:1,(I:1,J:1):1):1);"
+
+# Models to benchmark
+models:
+  - M0
+  - M1a
+  - M2a
+  - M7
+  - M8
+  - M8a
+
+# Parameter ranges for simulation
+parameter_ranges:
+  M0:
+    kappa: [1.5, 4.0]
+    omega: [0.25, 5.0]
+
+  M1a:
+    kappa: [1.5, 4.0]
+    p0: [0.6, 0.85]
+    omega0: [0.05, 0.3]
+
+  M2a:
+    kappa: [1.5, 4.0]
+    p0: [0.4, 0.6]
+    p1: [0.2, 0.35]
+    omega0: [0.05, 0.3]
+    omega2: [1.5, 4.0]
+
+  M7:
+    kappa: [1.5, 4.0]
+    p: [0.5, 3.0]
+    q: [1.0, 8.0]
+    ncateg: 10
+
+  M8:
+    kappa: [1.5, 4.0]
+    p0: [0.7, 0.9]
+    p: [0.5, 3.0]
+    q: [1.0, 8.0]
+    omega_s: [1.5, 4.0]
+    ncateg: 10
+
+  M8a:
+    kappa: [1.5, 4.0]
+    p0: [0.7, 0.9]
+    p: [0.5, 3.0]
+    q: [1.0, 8.0]
+    omega_s: 1.0 # Fixed
+    ncateg: 10
+
+# PAML execution settings
+paml:
+  executable: "../paml/src/codeml"
+  timeout: 800 # seconds (12 minutes for complex models like M7/M8)
+  maxiter: 1000
+  parallel_jobs: 60 # Number of parallel PAML runs
+
+# crabML execution settings
+crabml:
+  executable: "crabml"
+  timeout: 600 # seconds (10 minutes for complex models like M7/M8)
+  maxiter: 1000
+  parallel: false # Run sequentially for accurate timing
+
+# Comparison thresholds
+thresholds:
+  lnL_tolerance: 0.1 # Maximum acceptable |ΔlnL|
+  param_correlation_min: 0.98 # Minimum r for parameters
+  outlier_sigma: 3 # Standard deviations for outlier detection
+
+# Visualization settings
+visualization:
+  dpi: 300
+  figsize: [10, 8]
+  style: seaborn-v0_8-darkgrid
+  colors:
+    paml: "#1f77b4"
+    crabml: "#ff7f0e"
