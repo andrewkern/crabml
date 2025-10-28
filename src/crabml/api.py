@@ -318,21 +318,21 @@ class SiteModelResult(ModelResultBase):
 
         elif self.model_name == 'M7':
             lines.append(f"  Beta distribution:")
-            lines.append(f"    p = {self.params['p_beta']:.4f}")
-            lines.append(f"    q = {self.params['q_beta']:.4f}")
+            lines.append(f"    p = {self.params['p']:.4f}")
+            lines.append(f"    q = {self.params['q']:.4f}")
 
         elif self.model_name == 'M8':
             lines.append(f"  Beta distribution:")
-            lines.append(f"    p = {self.params['p_beta']:.4f}")
-            lines.append(f"    q = {self.params['q_beta']:.4f}")
+            lines.append(f"    p = {self.params['p']:.4f}")
+            lines.append(f"    q = {self.params['q']:.4f}")
             lines.append(f"  Additional site class:")
             lines.append(f"    omega_s = {self.params['omega_s']:.4f}")
             lines.append(f"    proportion = {1-self.params['p0']:.4f}")
 
         elif self.model_name == 'M8A':
             lines.append(f"  Beta distribution:")
-            lines.append(f"    p = {self.params['p_beta']:.4f}")
-            lines.append(f"    q = {self.params['q_beta']:.4f}")
+            lines.append(f"    p = {self.params['p']:.4f}")
+            lines.append(f"    q = {self.params['q']:.4f}")
             lines.append(f"  Additional site class:")
             lines.append(f"    omega = 1.0000 (fixed)")
             lines.append(f"    proportion = {1-self.params['p0']:.4f}")
@@ -1179,12 +1179,12 @@ def optimize_model(
     # Separate init_with_m0 from other optimizer_kwargs
     init_with_m0 = optimizer_kwargs.pop('init_with_m0', True)  # Default True
 
-    # Build optimizer kwargs - M0 doesn't accept init_with_m0
+    # Build optimizer kwargs - M0 and M3 don't accept init_with_m0
     optimizer_init_kwargs = {
         'use_f3x4': use_f3x4,
         'optimize_branch_lengths': optimize_branch_lengths,
     }
-    if model_upper != 'M0':
+    if model_upper not in ('M0', 'M3'):
         optimizer_init_kwargs['init_with_m0'] = init_with_m0
 
     optimizer = optimizer_class(
