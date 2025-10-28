@@ -1179,12 +1179,18 @@ def optimize_model(
     # Separate init_with_m0 from other optimizer_kwargs
     init_with_m0 = optimizer_kwargs.pop('init_with_m0', True)  # Default True
 
+    # Build optimizer kwargs - M0 doesn't accept init_with_m0
+    optimizer_init_kwargs = {
+        'use_f3x4': use_f3x4,
+        'optimize_branch_lengths': optimize_branch_lengths,
+    }
+    if model_upper != 'M0':
+        optimizer_init_kwargs['init_with_m0'] = init_with_m0
+
     optimizer = optimizer_class(
         align,
         tree_obj,
-        use_f3x4=use_f3x4,
-        optimize_branch_lengths=optimize_branch_lengths,
-        init_with_m0=init_with_m0
+        **optimizer_init_kwargs
     )
 
     # 5. Run optimization
