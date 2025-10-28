@@ -1,92 +1,71 @@
 # crabML
 
+[![Documentation](https://readthedocs.org/projects/crabml/badge/?version=latest)](https://crabml.readthedocs.io/en/latest/user_guide/models.html)
+[![Tests](https://github.com/andrewkern/crabml/actions/workflows/ci.yml/badge.svg)](https://github.com/andrewkern/crabml/actions/workflows/ci.yml)
+
+```
+                 _     __  __ _     
+   ___ _ __ __ _| |__ |  \/  | |    
+  / __| '__/ _` | '_ \| |\/| | |    
+ | (__| | | (_| | |_) | |  | | |___ 
+  \___|_|  \__,_|_.__/|_|  |_|_____|
+```
+
 High-performance reimplementation of PAML's codeml for phylogenetic maximum likelihood analysis, powered by Rust.
 
 ## Status
 
-**Production-ready v0.2.0** - Fully validated against PAML with simplified user-friendly API.
+**Production-ready v0.2.0** - Fully validated against PAML with 7-20x speedup.
 
-### Features
+### Key Features
 
-- **Command-Line Interface**: Simple `crabml` command for common analyses
-  - `crabml site-model`: Run site-class model tests (M1a vs M2a, M7 vs M8)
-  - `crabml branch-model`: Run branch model tests (multi-ratio, free-ratio)
-  - `crabml branch-site`: Run branch-site model tests
-  - `crabml fit`: Fit single models (M0, M1a, M2a, M7, M8, etc.)
-  - Multiple output formats: text, JSON, TSV
-- **Unified Python API**: Simple functions for all model types with specialized result classes
-  - `optimize_model()`: Fit site-class models (M0, M1a, M2a, M7, M8, etc.)
-  - `optimize_branch_model()`: Fit branch models (free-ratio, multi-ratio)
-  - `optimize_branch_site_model()`: Fit branch-site models (Model A)
-- **Type-safe results**: Specialized classes (`SiteModelResult`, `BranchModelResult`, `BranchSiteModelResult`)
-- **Site-class models**: M0, M1a, M2a, M3, M4, M5, M6, M7, M8, M8a, M9
-- **Branch models**: Free-ratio and multi-ratio models for lineage-specific selection
-- **Branch-site models**: Model A (test for positive selection on specific lineages)
-- **Hypothesis testing**: Complete LRT framework for detecting positive selection
-- **Auto-initialization**: M0-first optimization for reliable convergence on all data types
-- **High-performance Rust backend**: 3-5x faster than PAML with optimized Python/Rust hybrid approach
-- **PAML validation**: All models produce exact numerical matches (55 validation tests passing)
-- **Auto file detection**: Automatically detects FASTA vs PHYLIP format
+- **Simple Python API**: One-line model fitting with `optimize_model()`
+- **Command-Line Interface**: `crabml` command for common analyses
+- **11 Site-Class Models**: M0, M1a, M2a, M3, M4, M5, M6, M7, M8, M8a, M9
+- **Branch Models**: Free-ratio and multi-ratio for lineage-specific selection
+- **Branch-Site Models**: Model A for site and lineage-specific selection
+- **Hypothesis Testing**: Complete LRT framework with p-values
+- **7-11x Faster**: Optimized Rust backend with BLAS acceleration
+- **Validated**: Perfect correlation (r > 0.999) with PAML across 180 datasets
+- **Auto File Detection**: Supports FASTA and PHYLIP formats
 
 ## Installation
 
 ### Prerequisites
 
-1. **Install Rust** (required for building the high-performance backend):
+1. **Install Rust** (required):
    ```bash
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   source $HOME/.cargo/env  # or restart your shell
+   source $HOME/.cargo/env
    ```
-   Verify: `rustc --version`
 
 2. **Install uv** (Python package manager):
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
-3. **Python 3.11+** (usually comes with your system)
-
 ### Build from Source
 
 ```bash
-# Clone the repository
 git clone https://github.com/andrewkern/crabml.git
 cd crabml
-
-# Install all dependencies and build Rust extension
-uv sync --all-extras
-```
-
-This single command installs all Python dependencies (including maturin) and builds the high-performance Rust backend.
-
-### Troubleshooting
-
-**If you get "rustc is not installed" error:**
-- Install Rust first (see Prerequisites above)
-- Make sure `rustc` and `cargo` are in your PATH
-
-**For a completely clean rebuild:**
-```bash
-rm -rf .venv target/
 uv sync --all-extras
 ```
 
 ## Quick Start
 
-### Simple Model Fitting (NEW in v0.2.0!)
-
-The easiest way to fit a codon model:
+### Python API
 
 ```python
 from crabml import optimize_model
 
-# Fit M0 model with one line!
+# Fit M0 model with one line
 result = optimize_model("M0", "alignment.fasta", "tree.nwk")
 
 # Beautiful formatted output
 print(result.summary())
 
-# Access results easily
+# Access results
 print(f"omega = {result.omega:.4f}")
 print(f"kappa = {result.kappa:.4f}")
 print(f"lnL = {result.lnL:.2f}")
@@ -95,220 +74,175 @@ print(f"lnL = {result.lnL:.2f}")
 result.to_json("results.json")
 ```
 
-**Output:**
-```
-======================================================================
-MODEL: M0
-======================================================================
-
-Log-likelihood:       -906.017441
-Number of parameters: 13
-
-PARAMETERS:
-  kappa (ts/tv) = 4.5402
-  omega (dN/dS) = 0.8066
-
-TREE:
-  7 sequences
-  11 branches (optimized)
-
-======================================================================
-```
-
-## Command-Line Interface
-
-crabML provides a streamlined command-line interface for common analyses:
-
-### Quick Examples
-
-```bash
-# Site-class model tests (positive selection)
-crabml site-model -s alignment.fasta -t tree.nwk --test both
-
-# Branch model tests (lineage-specific selection)
-crabml branch-model -s alignment.fasta -t labeled_tree.nwk --test multi-ratio
-
-# Branch-site model test (site and lineage-specific selection)
-crabml branch-site -s alignment.fasta -t labeled_tree.nwk
-
-# Fit a single model
-crabml fit -m M0 -s alignment.fasta -t tree.nwk
-```
-
-### Available Commands
-
-#### `crabml site-model` - Positive Selection Tests
-
-Run standard likelihood ratio tests for detecting positive selection:
-
-```bash
-# Run M7 vs M8 test
-crabml site-model -s lysozyme.fasta -t lysozyme.nwk --test m7m8
-
-# Run M1a vs M2a test
-crabml site-model -s lysozyme.fasta -t lysozyme.nwk --test m1m2
-
-# Run both tests
-crabml site-model -s lysozyme.fasta -t lysozyme.nwk --test both
-
-# Output as JSON
-crabml site-model -s lysozyme.fasta -t lysozyme.nwk --test both --format json -o results.json
-
-# Output as TSV (for spreadsheets)
-crabml site-model -s lysozyme.fasta -t lysozyme.nwk --test both --format tsv -o results.tsv
-```
-
-**Options:**
-- `-s, --alignment`: Path to alignment file (FASTA or PHYLIP)
-- `-t, --tree`: Path to tree file (Newick format)
-- `--test`: Which test to run: `m1m2`, `m7m8`, `both`, or `all`
-- `--format`: Output format: `text` (default), `json`, or `tsv`
-- `--output, -o`: Write output to file
-- `--maxiter`: Maximum optimization iterations (default: 500)
-- `--alpha`: Significance threshold (default: 0.05)
-- `--quiet`: Suppress progress output
-- `--verbose`: Show detailed optimization progress
-
-#### `crabml fit` - Single Model Fitting
-
-Fit a specific codon substitution model:
-
-```bash
-# Fit M0 model
-crabml fit -m M0 -s alignment.fasta -t tree.nwk
-
-# Fit M8 with custom settings
-crabml fit -m M8 -s alignment.fasta -t tree.nwk --maxiter 1000 --verbose
-
-# Output as JSON
-crabml fit -m M2a -s alignment.fasta -t tree.nwk --format json -o m2a_result.json
-```
-
-**Supported models:** M0, M1a, M2a, M3, M7, M8, M8a
-
-**Options:**
-- `-m, --model`: Model name (required)
-- `-s, --alignment`: Path to alignment file (FASTA or PHYLIP)
-- `-t, --tree`: Path to tree file (Newick format)
-- `--format`: Output format: `text` (default) or `json`
-- `--output, -o`: Write output to file
-- `--maxiter`: Maximum optimization iterations (default: 500)
-- `--no-m0-init`: Skip M0 initialization (not recommended)
-- `--quiet`: Suppress progress output
-- `--verbose`: Show detailed optimization progress
-
-#### `crabml branch-model` - Branch Model Tests
-
-Test for lineage-specific selection using branch models:
-
-```bash
-# Multi-ratio test (different omega for labeled branches)
-crabml branch-model -s alignment.fasta -t labeled_tree.nwk --test multi-ratio
-
-# Free-ratio test (independent omega for each branch)
-crabml branch-model -s alignment.fasta -t tree.nwk --test free-ratio
-```
-
-**Supported tests:**
-- `multi-ratio`: Different omega for labeled branch groups (recommended)
-- `free-ratio`: Independent omega for each branch (exploratory, prone to overfitting)
-
-**Options:**
-- `-s, --alignment`: Path to alignment file (FASTA or PHYLIP)
-- `-t, --tree`: Path to tree file (Newick format, with branch labels for multi-ratio)
-- `--test`: Which test to run: `multi-ratio` (default) or `free-ratio`
-- `--format`: Output format: `text` (default), `json`, or `tsv`
-- `--output, -o`: Write output to file
-- `--maxiter`: Maximum optimization iterations (default: 1000)
-- `--alpha`: Significance threshold (default: 0.05)
-- `--quiet`: Suppress progress output
-- `--verbose`: Show detailed optimization progress
-
-#### `crabml branch-site` - Branch-Site Model Test
-
-Test for positive selection on specific lineages using branch-site Model A:
-
-```bash
-# Tree must have branch labels: #0 (background), #1 (foreground)
-crabml branch-site -s alignment.fasta -t labeled_tree.nwk
-
-# With custom settings
-crabml branch-site -s alignment.fasta -t labeled_tree.nwk --maxiter 1000 --alpha 0.01
-```
-
-**Options:**
-- `-s, --alignment`: Path to alignment file (FASTA or PHYLIP)
-- `-t, --tree`: Path to tree file with branch labels (Newick format)
-- `--format`: Output format: `text` (default), `json`, or `tsv`
-- `--output, -o`: Write output to file
-- `--maxiter`: Maximum optimization iterations (default: 500)
-- `--alpha`: Significance threshold (default: 0.05)
-- `--quiet`: Suppress progress output
-- `--verbose`: Show detailed optimization progress
-
-### CLI Example Output
-
-**Text format (default):**
-```
-Test 2: M7 (Beta) vs M8 (Beta + positive selection)
---------------------------------------------------------------------------------
-Null (M7):           lnL = -902.510    parameters = {...}
-Alternative (M8):    lnL = -899.999    parameters = {...}
-
-Likelihood Ratio Test:
-  2ΔlnL = 5.02    df = 2    p-value = 0.0812
-
-Result: No significant evidence for positive selection (p > 0.05)
-```
-
-**JSON format:**
-```json
-{
-  "M7_vs_M8": {
-    "test_name": "M7 vs M8",
-    "lnL_null": -902.510,
-    "lnL_alt": -899.999,
-    "LRT": 5.022,
-    "pvalue": 0.0812,
-    "significant": false
-  }
-}
-```
-
-**TSV format (for Excel/R):**
-```
-test	null_model	alt_model	null_lnL	alt_lnL	LRT	df	pvalue	significant
-M7_vs_M8	M7	M8	-902.510	-899.999	5.022	2	0.0812	no
-```
-
-### Testing for Positive Selection
-
-Run hypothesis tests with one function call:
+### Test for Positive Selection
 
 ```python
 from crabml import positive_selection
 
-# Run standard likelihood ratio tests
+# Run both M1a vs M2a and M7 vs M8 tests
 results = positive_selection(
     alignment='lysozyme.fasta',
     tree='lysozyme.tree',
-    test='both'  # Runs both M1a vs M2a and M7 vs M8
+    test='both'
 )
 
 # Check results
-print(results['M1a_vs_M2a'].summary())
-
-# Get p-values
 if results['M1a_vs_M2a'].significant(0.05):
     print(f"Positive selection detected! ω = {results['M1a_vs_M2a'].omega_positive:.2f}")
 ```
 
-### More Models
+### Command-Line Interface
+
+```bash
+# Test for positive selection
+crabml site-model -s alignment.fasta -t tree.nwk --test both
+
+# Fit single model
+crabml fit -m M0 -s alignment.fasta -t tree.nwk
+
+# Branch-site test
+crabml branch-site -s alignment.fasta -t labeled_tree.nwk
+
+# Output as JSON
+crabml site-model -s data.fasta -t tree.nwk --test m7m8 --format json -o results.json
+```
+
+## Supported Models
+
+All models validated against PAML with exact numerical agreement.
+
+### Site-Class Models
+
+Models where ω varies across sites:
+
+- **M0**: Single dN/dS ratio
+- **M1a**: NearlyNeutral (purifying + neutral)
+- **M2a**: PositiveSelection (purifying + neutral + positive)
+- **M3**: K discrete omega categories
+- **M7**: Beta distribution (0 < ω < 1)
+- **M8**: Beta + positive selection class (ω > 1)
+- **M8a**: Beta + neutral class (null for M8)
+- **M4, M5, M6, M9**: Additional distribution-based models
+
+### Branch Models
+
+Models where ω varies across branches:
+
+- **Multi-ratio**: Different ω for labeled branch groups (recommended)
+- **Free-ratio**: Independent ω for each branch (exploratory)
+
+### Branch-Site Models
+
+Models where ω varies across sites AND branches:
+
+- **Model A**: Four site classes with lineage-specific positive selection
+
+## Validation & Performance
+
+### Comprehensive Validation
+
+Tested with **180 datasets** (30 replicates × 6 models) using simulated data:
+
+| Model | Likelihood Correlation | RMSE | Mean \|Δ\| | Speedup |
+|-------|----------------------|------|-----------|---------|
+| **M0** | r = 1.000 | 0.0000 | 0.0000 | 7.11x |
+| **M1a** | r = 1.000 | 0.0173 | 0.0037 | 11.40x |
+| **M2a** | r = 1.000 | 0.0119 | 0.0063 | 16.30x |
+| **M7** | r = 1.000 | 0.0014 | 0.0003 | 20.54x |
+| **M8** | r = 1.000 | 0.0588 | 0.0241 | 11.45x |
+| **M8a** | r = 1.000 | 0.0327 | 0.0188 | 8.29x |
+
+**Perfect correlation (r > 0.999) across all models** with mean differences < 0.03 lnL units.
+
+**Performance:** Runtime comparisons show 7-20x speedup over PAML across all models.
+
+### Known Identifiability Issues
+
+crabML correctly replicates known parameter identifiability issues in M1a and M2a:
+- **M1a**: Flat likelihood surface when ω₀ ≈ 1
+- **M2a**: Label switching between neutral and positive selection classes
+
+Both implementations show identical issues, validating correctness.
+
+### Performance Benchmarks
+
+**Average speedup: 7-11x over PAML**
+
+Key optimizations:
+- Rust likelihood calculation with BLAS acceleration (300-500x faster than NumPy)
+- Precomputed codon substitution graph (21x faster Q matrix)
+- Vectorized matrix operations
+- Efficient eigendecomposition caching
+
+See `benchmarks/` directory for full validation infrastructure.
+
+## CLI Reference
+
+### `crabml site-model` - Positive Selection Tests
+
+```bash
+# M7 vs M8 test
+crabml site-model -s data.fasta -t tree.nwk --test m7m8
+
+# M1a vs M2a test
+crabml site-model -s data.fasta -t tree.nwk --test m1m2
+
+# Run both tests
+crabml site-model -s data.fasta -t tree.nwk --test both
+
+# Output formats
+crabml site-model -s data.fasta -t tree.nwk --test both --format json -o results.json
+crabml site-model -s data.fasta -t tree.nwk --test both --format tsv -o results.tsv
+```
+
+**Options:**
+- `-s, --alignment`: Alignment file (FASTA or PHYLIP)
+- `-t, --tree`: Tree file (Newick format)
+- `--test`: Test type (`m1m2`, `m7m8`, `both`)
+- `--format`: Output format (`text`, `json`, `tsv`)
+- `--maxiter`: Max iterations (default: 500)
+- `--alpha`: Significance threshold (default: 0.05)
+
+### `crabml fit` - Single Model Fitting
+
+```bash
+# Fit specific model
+crabml fit -m M0 -s alignment.fasta -t tree.nwk
+
+# With custom settings
+crabml fit -m M8 -s data.fasta -t tree.nwk --maxiter 1000 --verbose
+
+# JSON output
+crabml fit -m M2a -s data.fasta -t tree.nwk --format json -o result.json
+```
+
+**Supported models:** M0, M1a, M2a, M3, M7, M8, M8a
+
+### `crabml branch-model` - Branch Model Tests
+
+```bash
+# Multi-ratio test (labeled branches)
+crabml branch-model -s alignment.fasta -t labeled_tree.nwk --test multi-ratio
+
+# Free-ratio test (all branches)
+crabml branch-model -s alignment.fasta -t tree.nwk --test free-ratio
+```
+
+### `crabml branch-site` - Branch-Site Model Test
+
+```bash
+# Tree must have branch labels: #0 (background), #1 (foreground)
+crabml branch-site -s alignment.fasta -t labeled_tree.nwk
+```
+
+## Python API Examples
+
+### Multiple Models
 
 ```python
 from crabml import optimize_model
 
-# Test different models easily
+# Test different models
 m1a = optimize_model("M1a", "alignment.fasta", "tree.nwk")
 m2a = optimize_model("M2a", "alignment.fasta", "tree.nwk")
 m7 = optimize_model("M7", "alignment.fasta", "tree.nwk")
@@ -318,17 +252,9 @@ m8 = optimize_model("M8", "alignment.fasta", "tree.nwk")
 print(f"M2a site classes: {m2a.n_site_classes}")
 print(f"M2a proportions: {m2a.proportions}")
 print(f"M2a omegas: {m2a.omegas}")
-
-# M8 has omega > 1 class
-if m8.params['omega_s'] > 1:
-    print(f"M8 positive selection: ω = {m8.params['omega_s']:.2f}")
 ```
 
-### Branch and Branch-Site Models
-
-crabML now provides simplified functions for branch and branch-site model fitting:
-
-**Branch Models** - Test for lineage-specific selection:
+### Branch Models
 
 ```python
 from crabml import optimize_branch_model
@@ -336,19 +262,14 @@ from crabml import optimize_branch_model
 # Tree with branch labels: #0 = background, #1 = foreground
 tree_str = "((human,chimp) #1, (mouse,rat) #0);"
 
-# Multi-ratio model: different ω for labeled branch groups
+# Multi-ratio model
 result = optimize_branch_model("multi-ratio", "alignment.fasta", tree_str)
 
-print(result.summary())
-print(f"Primate omega: {result.foreground_omega:.3f}")
-print(f"Rodent omega: {result.background_omega:.3f}")
-
-# Free-ratio model: independent ω for each branch (exploratory)
-result = optimize_branch_model("free-ratio", "alignment.fasta", "tree.nwk")
-print(result.omega_dict)  # Dictionary of all branch-specific omegas
+print(f"Foreground omega: {result.foreground_omega:.3f}")
+print(f"Background omega: {result.background_omega:.3f}")
 ```
 
-**Branch-Site Models** - Test for site-specific positive selection on lineages:
+### Branch-Site Models
 
 ```python
 from crabml import optimize_branch_site_model
@@ -356,40 +277,39 @@ from crabml import optimize_branch_site_model
 # Test for positive selection on primate lineage
 tree_str = "((human,chimp) #1, (mouse,rat) #0);"
 
-# Alternative model (omega2 free to vary)
+# Alternative model (omega2 free)
 result = optimize_branch_site_model("model-a", "alignment.fasta", tree_str)
 
-print(result.summary())
 print(f"Positive selection omega: {result.omega2:.3f}")
 print(f"Sites under selection: {result.foreground_positive_proportion:.1%}")
 
-# Null model (omega2 = 1) for hypothesis testing
+# Null model (omega2 = 1)
 null = optimize_branch_site_model("model-a", "alignment.fasta", tree_str, fix_omega=True)
 ```
 
 ### Result Classes
 
-crabML uses specialized result classes for type safety and clarity:
+crabML uses specialized result classes:
 
-- **`SiteModelResult`**: For site-class models (M0, M1a, M2a, M7, M8, etc.)
+- **`SiteModelResult`**: Site-class models (M0, M1a, M2a, M7, M8, etc.)
   - Properties: `.omega`, `.omegas`, `.proportions`, `.n_site_classes`
 
-- **`BranchModelResult`**: For branch models (free-ratio, multi-ratio)
+- **`BranchModelResult`**: Branch models (free-ratio, multi-ratio)
   - Properties: `.omega_dict`, `.foreground_omega`, `.background_omega`
 
-- **`BranchSiteModelResult`**: For branch-site models (Model A)
+- **`BranchSiteModelResult`**: Branch-site models (Model A)
   - Properties: `.omega0`, `.omega2`, `.proportions`, `.foreground_positive_proportion`
 
 All result classes support:
-- `.summary()`: Human-readable formatted output
+- `.summary()`: Formatted output
 - `.to_dict()`: Export as dictionary
 - `.to_json(filepath)`: Export as JSON
 
-**Note:** `ModelResult` is an alias for `SiteModelResult` for backwards compatibility.
+## Advanced Usage
 
-### Advanced: Direct Optimizer Access
+### Direct Optimizer Access
 
-For maximum control, use the optimizer classes directly:
+For maximum control:
 
 ```python
 from crabml.io.sequences import Alignment
@@ -400,7 +320,7 @@ from crabml.optimize.optimizer import M2aOptimizer
 alignment = Alignment.from_fasta("alignment.fasta", seqtype='codon')
 tree = Tree.from_newick("tree.nwk")
 
-# Run M2a model optimization
+# Run M2a optimization
 optimizer = M2aOptimizer(alignment, tree, use_f3x4=True)
 kappa, p0, p1, omega0, omega2, lnL = optimizer.optimize()
 
@@ -408,334 +328,124 @@ print(f"Log-likelihood: {lnL:.6f}")
 print(f"ω for positive selection: {omega2:.4f}")
 ```
 
-## Hypothesis Testing
-
-crabML provides publication-ready hypothesis tests for detecting positive selection:
-
-### Site-Class Model Tests
-
-- **M1a vs M2a**: Tests for positive selection against nearly neutral null model
-- **M7 vs M8**: Tests for positive selection using beta distribution models
-- **M8a vs M8**: Tests for positive selection with 50:50 mixture null distribution
-
-### Branch-Site Model Tests
-
-- **Branch-Site Model A**: Tests for positive selection on specific phylogenetic lineages
-  - Detects if specific sites on foreground branches have ω > 1
-  - Uses standard chi-square LRT with df=1
-  - Returns site-specific parameter estimates
-
-All tests:
-- Calculate likelihood ratio test (LRT) statistics automatically
-- Provide p-values from appropriate chi-square distributions
-- Include formatted output suitable for publications
-- Export results to dict/JSON for further analysis
-
-### Example Output
-
-```
-================================================================================
-Likelihood Ratio Test for Positive Selection
-================================================================================
-
-Test: M1a vs M2a
-
-NULL MODEL (M1a):
-  Log-likelihood: -902.503872
-  Parameters:
-    p0 = 0.4923 (proportion ω < 1)
-    ω0 = 0.0538
-    κ  = 2.2945
-
-ALTERNATIVE MODEL (M2a):
-  Log-likelihood: -899.998568
-  Parameters:
-    p2 = 0.2075 (proportion ω > 1)
-    ω2 = 3.4472
-
-LIKELIHOOD RATIO TEST:
-  LRT statistic: 5.0106
-  Degrees of freedom: 2
-  P-value: 0.0817
-
-CONCLUSION:
-  No significant evidence for positive selection (α = 0.05)
-================================================================================
-```
-
 ### Branch-Site Analysis
 
-Test for positive selection on specific lineages (e.g., primates, mammals, specific gene duplicates):
-
 ```python
-from crabml.io.sequences import Alignment
-from crabml.io.trees import Tree
 from crabml.analysis import branch_site_test
 
-# Load data
-alignment = Alignment.from_phylip('alignment.phy', seqtype='codon')
-
 # Tree with branch labels: #0 = background, #1 = foreground
-# Test for positive selection on the primate lineage
-tree_str = """
-((human, chimp) #1,
- (mouse, rat));
-"""
-tree = Tree.from_newick(tree_str)
+tree_str = "((human, chimp) #1, (mouse, rat));"
 
 # Run branch-site test (Model A vs Model A null)
 results = branch_site_test(
-    alignment=alignment,
-    tree=tree,
+    alignment='alignment.fasta',
+    tree=tree_str,
     use_f3x4=True,
     optimize_branch_lengths=True
 )
 
 # Check results
-print(f"P-value: {results['pvalue']:.6f}")
-print(f"LRT statistic: {results['lrt_statistic']:.6f}")
-
 if results['significant']:
-    omega2 = results['alt_params']['omega2']
-    p2 = results['alt_params']['p2']
-    print(f"✓ Positive selection detected on foreground branches!")
-    print(f"  ω₂ = {omega2:.4f} (dN/dS for positively selected sites)")
-    print(f"  p₂ = {p2:.4f} (proportion of sites under selection)")
-else:
-    print("✗ No significant evidence for positive selection")
+    print(f"Positive selection detected!")
+    print(f"  ω₂ = {results['alt_params']['omega2']:.4f}")
+    print(f"  p₂ = {results['alt_params']['p2']:.4f}")
 ```
-
-**Key features:**
-- Automatically runs both null (ω₂=1) and alternative (ω₂ free) models
-- Calculates likelihood ratio test with df=1
-- Returns comprehensive results dictionary with all parameters
-- Supports any tree topology with branch labels
-
-### Branch Model Analysis
-
-Test for lineage-specific selection (different ω on different branches):
-
-```python
-from crabml.analysis import branch_model_test
-
-# Tree with branch labels: #0 = background, #1 = foreground
-# Tests if human-chimp lineage has different ω than mouse-rat
-tree_str = "((human,chimp) #1, (mouse,rat));"
-
-result = branch_model_test(
-    alignment='alignment.fasta',
-    tree=tree_str,
-    verbose=True
-)
-
-# Check results
-print(f"P-value: {result.pvalue:.6f}")
-print(f"LRT statistic: {result.LRT:.6f}")
-
-if result.significant(0.05):
-    omega_fg = result.alt_params['omega1']
-    omega_bg = result.alt_params['omega0']
-    print(f"✓ Lineage-specific selection detected!")
-    print(f"  Foreground ω={omega_fg:.3f}, Background ω={omega_bg:.3f}")
-```
-
-**Advanced: Direct model optimization**
-
-For more control over optimization:
-
-```python
-from crabml.io.sequences import Alignment
-from crabml.io.trees import Tree
-from crabml.optimize.branch import BranchModelOptimizer
-
-# Load data
-alignment = Alignment.from_phylip('alignment.phy', seqtype='codon')
-
-# Tree with branch labels: #0 = background, #1 = foreground
-tree_str = "((human,chimp) #1, (mouse,rat));"
-tree = Tree.from_newick(tree_str)
-
-# Run multi-ratio branch model (model=2)
-optimizer = BranchModelOptimizer(
-    alignment=alignment,
-    tree=tree,
-    use_f3x4=True,
-    free_ratio=False,  # Multi-ratio model
-)
-
-# Optimize parameters
-kappa, omega_dict, lnL = optimizer.optimize()
-
-print(f"Log-likelihood: {lnL:.6f}")
-print(f"Kappa: {kappa:.6f}")
-print(f"Omega (background): {omega_dict['omega0']:.6f}")
-print(f"Omega (foreground): {omega_dict['omega1']:.6f}")
-
-# Interpret results
-if omega_dict['omega1'] > 1 and omega_dict['omega1'] > omega_dict['omega0']:
-    print("✓ Positive selection detected on foreground lineage!")
-```
-
-**Key features:**
-- Hypothesis test: Multi-ratio vs M0 (one-ratio) model
-- Multi-ratio model: Different ω for labeled branch groups
-- Free-ratio model: Independent ω for each branch (set `free_ratio=True`)
-- Branch labels specified in tree: `#0`, `#1`, `#2`, etc.
-- PAML-validated: Exact numerical match (lnL diff < 0.000001)
-
-## Supported Models
-
-All models validated against PAML reference outputs with exact numerical agreement.
-
-### Site-Class Models
-
-Models where ω varies across sites but not across branches:
-
-- **M0** (one-ratio): Single dN/dS ratio across all sites
-- **M1a** (NearlyNeutral): Two site classes (purifying, neutral)
-- **M2a** (PositiveSelection): Three site classes (purifying, neutral, positive)
-- **M3** (discrete): K discrete omega categories
-- **M4** (freqs): Five fixed omegas with variable proportions
-- **M5** (gamma): Gamma distribution for omega
-- **M6** (2gamma): Mixture of two gamma distributions
-- **M7** (beta): Beta distribution for omega (0 < omega < 1)
-- **M8** (beta&ω): Beta distribution plus positive selection class
-- **M8a** (beta&ω=1): Beta distribution plus neutral class (null for M8)
-- **M9** (beta&gamma): Mixture of beta and gamma distributions
-
-### Branch Models
-
-Models where ω varies across branches but not across sites:
-
-- **Free-ratio model** (model=1): Independent ω for each branch
-  - Estimates one ω per branch in the tree
-  - Highly parameter-rich (n-1 omega parameters for n species)
-  - Useful for exploratory analysis but prone to overfitting
-
-- **Multi-ratio model** (model=2): Different ω for labeled branch groups
-  - User specifies branch groups via labels (#0, #1, #2, etc.)
-  - One ω parameter per unique label
-  - Tests for lineage-specific selection (e.g., primates vs others)
-  - **Recommended** approach for detecting selection on specific lineages
-
-### Branch-Site Models
-
-Models where ω varies across both sites and branches:
-
-- **Branch-Site Model A**: Four site classes with different ω on foreground vs background branches
-  - Class 0: conserved (ω₀ < 1) on all branches
-  - Class 1: neutral (ω = 1) on all branches
-  - Class 2a: conserved on background, positive selection (ω₂ > 1) on foreground
-  - Class 2b: neutral on background, positive selection on foreground
-  - Null model: fixes ω₂ = 1 for hypothesis testing
-
-**Validation:** All models match PAML within 0.1 log-likelihood units (typically < 0.05)
-
-## Performance
-
-crabML achieves **~10× speedup** over PAML through optimized Python/Rust hybrid implementation while maintaining exact numerical agreement.
-
-### Benchmark Results
-
-Full parameter optimization (finding maximum likelihood estimates) on two datasets:
-
-**Lysozyme dataset** (7 sequences, 11 branches, 135 codons):
-
-| Model | PAML | crabML | Speedup |
-|-------|------|--------|---------|
-| **M7** (Beta distribution) | 60.4s | 8.0s | **7.5×** |
-| **M8** (Beta & ω>1) | 91.4s | 9.7s | **9.4×** |
-
-**Lysin dataset** (25 sequences, 49 branches, 214 codons):
-
-| Model | PAML | crabML | Speedup |
-|-------|------|--------|---------|
-| **M7** (Beta distribution) | 658.4s | 73.1s | **9.0×** |
-| **M8** (Beta & ω>1) | 1190.9s | 93.8s | **12.7×** |
-
-**Overall average speedup: 9.7×**
-
-
-### Key Optimizations
-
-1. **Rust likelihood calculation**: BLAS-accelerated tree traversal (300-500× faster than NumPy)
-2. **Precomputed codon graph**: Cached single-nucleotide substitution network (21× faster Q matrix construction)
-3. **Vectorized Q matrix construction**: NumPy broadcasting replaces nested loops (64× faster)
-4. **Efficient eigendecomposition**: Cached matrix exponentials reused across branch lengths
-5. **Hybrid architecture**: Rust for computation-heavy likelihood, optimized Python for model-specific logic
-
-### Numerical Accuracy
-
-All optimizations maintain **exact numerical agreement** with PAML:
-- M7: lnL = -902.510023 (PAML: -902.510018, diff: 0.000005)
-- M8: lnL = -899.999247 (PAML: -899.999237, diff: 0.000010)
-
-Differences are within floating-point precision and have no scientific impact.
 
 ## Development
 
 ### Setup
 
 ```bash
-# Install all dependencies (including maturin for building Rust)
+# Install dependencies
 uv sync --all-extras
 
 # Rebuild Rust extension after changes
 uv sync --all-extras --reinstall-package crabml-rust
 ```
 
-### Testing Strategy
+### Testing
 
-crabML uses a two-tier testing strategy for fast development cycles and comprehensive validation:
-
-**Tier 1: Fast CI Tests** (~203 tests, 5-10 min)
+**Fast tests** (238 tests, ~5 min):
 ```bash
-# Run fast tests (excludes slow PAML validation)
 uv run pytest -m "not slow" -n 4 -v
-
-# Automatically runs on GitHub Actions for every push/PR
 ```
 
-**Tier 2: PAML Validation Tests** (~30 tests, 10-15 min)
+**PAML validation tests** (~30 tests, ~10 min):
 ```bash
-# Run slow PAML validation tests
 uv run pytest -m "slow" -n 4 -v
+```
 
-# Run FULL test suite (fast + slow)
+**Full test suite**:
+```bash
 uv run pytest -n 4 -v
 ```
 
-**Recommended workflow:**
-- During development: Run fast tests (`-m "not slow"`)
-- Before creating PR: Run full test suite (all tests)
-- CI automatically runs fast tests on every push
+### Benchmarking
 
-See [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) for detailed information.
+Run comprehensive PAML validation:
+
+```bash
+cd benchmarks
+
+# Generate simulated data
+uv run python run_benchmark.py generate --models M0 M1a M2a M7 M8 M8a
+
+# Run PAML analysis
+uv run python run_benchmark.py run-paml --models M0 M1a M2a M7 M8 M8a
+
+# Run crabML analysis
+uv run python run_benchmark.py run-crabml --models M0 M1a M2a M7 M8 M8a
+
+# Generate comparison and visualizations
+uv run python run_benchmark.py compare
+uv run python run_benchmark.py visualize
+```
+
+See `benchmarks/README.md` for details.
 
 ### Other Commands
 
 ```bash
-# Run specific test file
-uv run pytest tests/test_reference/test_matrix.py -v
+# Run specific test
+uv run pytest tests/test_api.py::TestOptimizeModel::test_m0_with_file_paths -v
 
-# Run tests with coverage
+# Run with coverage
 uv run pytest --cov=crabml --cov-report=html
 
-# Run Rust tests directly
+# Run Rust tests
 cargo test
-
-# Run specific PAML validation test
-uv run pytest tests/test_rust/test_paml_rust_validation.py::TestRustPAMLValidation::test_rust_m8_likelihood_matches_paml -v
 ```
 
-### Continuous Integration
+## Documentation
 
-GitHub Actions automatically runs fast tests on every push and pull request:
-- Builds Rust extension in release mode
-- Runs 203 fast tests with 2 workers
-- Expected runtime: ~12-15 minutes
+Full documentation available at [crabml.readthedocs.io](https://crabml.readthedocs.io/en/latest/user_guide/models.html)
 
-See [.github/workflows/ci.yml](.github/workflows/ci.yml) for CI configuration.
+## Citation
+
+If you use crabML in your research, please cite:
+
+```bibtex
+@software{crabml2025,
+  title = {crabML: High-performance phylogenetic analysis},
+  author = {Kern, Andrew D.},
+  year = {2025},
+  url = {https://github.com/andrewkern/crabml}
+}
+```
+
+Also cite the original PAML software:
+
+```bibtex
+@article{yang2007paml,
+  title={PAML 4: phylogenetic analysis by maximum likelihood},
+  author={Yang, Ziheng},
+  journal={Molecular biology and evolution},
+  volume={24},
+  number={8},
+  pages={1586--1591},
+  year={2007}
+}
+```
 
 ## License
 
