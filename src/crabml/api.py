@@ -647,8 +647,8 @@ def _parse_m1a_result(
     alignment: Alignment,
     optimize_branch_lengths: bool
 ) -> SiteModelResult:
-    """Parse M1a optimizer result: (kappa, p0, omega0, lnL)"""
-    kappa, p0, omega0, lnL = result_tuple
+    """Parse M1a optimizer result: (kappa, omega0, p0, lnL)"""
+    kappa, omega0, p0, lnL = result_tuple
 
     # Count parameters: kappa + p0 + omega0 + branch lengths
     n_params = 3
@@ -679,8 +679,8 @@ def _parse_m2a_result(
     alignment: Alignment,
     optimize_branch_lengths: bool
 ) -> SiteModelResult:
-    """Parse M2a optimizer result: (kappa, p0, p1, omega0, omega2, lnL)"""
-    kappa, p0, p1, omega0, omega2, lnL = result_tuple
+    """Parse M2a optimizer result: (kappa, omega0, omega2, p0, p1, lnL)"""
+    kappa, omega0, omega2, p0, p1, lnL = result_tuple
 
     # Count parameters: kappa + p0 + p1 + omega0 + omega2 + branch lengths
     n_params = 5
