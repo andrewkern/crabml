@@ -1292,7 +1292,11 @@ def optimize_branch_model(
             f"Valid models are: 'free-ratio', 'multi-ratio'"
         )
 
-    # 3. Create optimizer
+    # 3. Run M0 first to get good starting values (like PAML does)
+    m0_optimizer = M0Optimizer(align, tree_obj, use_f3x4=use_f3x4)
+    kappa_m0, omega_m0, lnL_m0 = m0_optimizer.optimize()
+
+    # 4. Create branch optimizer (tree now has M0-optimized branch lengths)
     optimizer = BranchModelOptimizer(
         align,
         tree_obj,
@@ -1301,10 +1305,12 @@ def optimize_branch_model(
         optimize_branch_lengths=optimize_branch_lengths
     )
 
-    # 4. Run optimization
+    # 5. Run optimization starting from M0 estimates
+    optimizer_kwargs.setdefault('init_kappa', kappa_m0)
+    optimizer_kwargs.setdefault('init_omega', omega_m0)
     result_tuple = optimizer.optimize(**optimizer_kwargs)
 
-    # 5. Parse result
+    # 6. Parse result
     return _parse_branch_model_result(
         model_name=model_name,
         result_tuple=result_tuple,

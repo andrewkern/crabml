@@ -1090,9 +1090,9 @@ class M8Optimizer:
         self,
         init_kappa: float = 2.0,
         init_p0: float = 0.9,
-        init_p_beta: float = 0.5,
-        init_q_beta: float = 0.5,
-        init_omega_s: float = 2.0,
+        init_p_beta: float = 0.7,
+        init_q_beta: float = 1.5,
+        init_omega_s: float = 2.5,
         method: str = 'L-BFGS-B',
         maxiter: int = 200
     ) -> Tuple[float, float, float, float, float, float]:
@@ -1282,8 +1282,8 @@ class M8aOptimizer:
         self,
         init_kappa: float = 2.0,
         init_p0: float = 0.9,
-        init_p_beta: float = 0.5,
-        init_q_beta: float = 0.5,
+        init_p_beta: float = 0.7,
+        init_q_beta: float = 1.5,
         method: str = 'L-BFGS-B',
         maxiter: int = 200
     ) -> Tuple[float, float, float, float, float]:

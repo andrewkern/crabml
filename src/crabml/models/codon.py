@@ -325,7 +325,7 @@ class M1aCodonModel:
         """Initialize M1a model."""
         self.kappa = kappa
         self.omega0 = min(omega0, 0.999)  # Ensure < 1
-        self.p0 = np.clip(p0, 0.001, 0.999)
+        self.p0 = np.clip(p0, 1e-6, 1 - 1e-6)
 
         if pi is None:
             self.pi = np.ones(61) / 61
@@ -665,7 +665,7 @@ class M8CodonModel:
     ):
         """Initialize M8 model."""
         self.kappa = kappa
-        self.p0 = np.clip(p0, 0.001, 0.999)
+        self.p0 = np.clip(p0, 1e-6, 1 - 1e-6)
         self.p_beta = max(p_beta, 0.005)
         self.q_beta = max(q_beta, 0.005)
         self.omega_s = max(omega_s, 1.001)  # Must be > 1
@@ -766,7 +766,7 @@ class M8aCodonModel:
     ):
         """Initialize M8a model."""
         self.kappa = kappa
-        self.p0 = np.clip(p0, 0.001, 0.999)
+        self.p0 = np.clip(p0, 1e-6, 1 - 1e-6)
         self.p_beta = max(p_beta, 0.005)
         self.q_beta = max(q_beta, 0.005)
         self.omega_s = 1.0  # Fixed to 1.0 (neutral)
@@ -965,7 +965,7 @@ class M9CodonModel:
     ):
         """Initialize M9 model."""
         self.kappa = kappa
-        self.p0 = np.clip(p0, 0.001, 0.999)
+        self.p0 = np.clip(p0, 1e-6, 1 - 1e-6)
         self.p_beta = max(p_beta, 0.005)
         self.q_beta = max(q_beta, 0.005)
         self.alpha = max(alpha, 0.005)
@@ -1167,7 +1167,7 @@ class M6CodonModel:
     ):
         """Initialize M6 model."""
         self.kappa = kappa
-        self.p0 = np.clip(p0, 0.001, 0.999)
+        self.p0 = np.clip(p0, 1e-6, 1 - 1e-6)
         self.alpha1 = max(alpha1, 0.005)
         self.beta1 = max(beta1, 0.005)
         self.alpha2 = max(alpha2, 0.005)  # alpha2 = beta2

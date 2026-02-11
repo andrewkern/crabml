@@ -124,7 +124,10 @@ def branch_model_test(
     )
 
     try:
-        kappa_branch, omega_dict, lnL_branch = branch_optimizer.optimize()
+        kappa_branch, omega_dict, lnL_branch = branch_optimizer.optimize(
+            init_kappa=kappa_m0,
+            init_omega=omega_m0,
+        )
         branch_success = True
         n_omega = branch_optimizer.model.n_omega
     except Exception as e:
@@ -262,7 +265,10 @@ def free_ratio_test(
     )
 
     try:
-        kappa_branch, omega_dict, lnL_branch = branch_optimizer.optimize()
+        kappa_branch, omega_dict, lnL_branch = branch_optimizer.optimize(
+            init_kappa=kappa_m0,
+            init_omega=omega_m0,
+        )
         branch_success = True
         n_omega = branch_optimizer.model.n_omega
     except Exception as e:
