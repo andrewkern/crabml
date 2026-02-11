@@ -778,14 +778,15 @@ class M3Optimizer:
         init_proportions: list[float] = None,
         method: str = 'L-BFGS-B',
         maxiter: int = 500,
-        n_restarts: int = 10
+        n_restarts: int = 1
     ) -> Tuple[float, list[float], list[float], float]:
         """
         Optimize M3 parameters matching PAML's codeml.
 
         Uses L-BFGS-B (equivalent to PAML's ming2) with PAML's initialization
-        formulas from GetInitialsCodon. Multiple restarts with random
-        initialization (PAML's rndu()) to avoid local optima.
+        formulas from GetInitialsCodon. By default uses a single run with
+        random initialization (matching PAML). Set n_restarts > 1 for more
+        robust optimization at the cost of speed.
 
         Returns (kappa, omegas, proportions, log_likelihood)
         """
@@ -809,22 +810,20 @@ class M3Optimizer:
         best_lnL = -np.inf
         best_result = None
 
-        print(f"Starting M3 optimization (K={K}, {n_restarts} restarts)")
+        if n_restarts > 1:
+            print(f"Starting M3 optimization (K={K}, {n_restarts} restarts)")
+        else:
+            print(f"Starting M3 optimization (K={K})")
 
         for trial in range(n_restarts):
             # Restore M0 branch lengths for each restart
             for node, bl in zip(self.branch_nodes, m0_branch_lengths):
                 node.branch_length = bl
 
-            # First trial: deterministic midpoint (rndu=0.5)
-            # Subsequent trials: random initialization (PAML rndu style)
-            if trial == 0:
-                init_params, kappa_init, trial_omegas, trial_logits = \
-                    self._build_init_params(K, init_kappa, m0_omega, rng=None)
-            else:
-                rng = np.random.default_rng(seed=trial)
-                init_params, kappa_init, trial_omegas, trial_logits = \
-                    self._build_init_params(K, init_kappa, m0_omega, rng=rng)
+            # Random initialization matching PAML's rndu()
+            rng = np.random.default_rng(seed=trial)
+            init_params, kappa_init, trial_omegas, trial_logits = \
+                self._build_init_params(K, init_kappa, m0_omega, rng=rng)
 
             self._enforce_bounds(init_params, bounds)
             self.history = []
@@ -840,8 +839,9 @@ class M3Optimizer:
             trial_lnL = -result.fun
             opt_kappa, opt_omegas, opt_proportions = self._extract_result(result.x, K)
 
-            print(f"  restart {trial}: lnL={trial_lnL:.6f}, "
-                  f"w=[{', '.join(f'{w:.4f}' for w in opt_omegas)}]")
+            if n_restarts > 1:
+                print(f"  restart {trial}: lnL={trial_lnL:.6f}, "
+                      f"w=[{', '.join(f'{w:.4f}' for w in opt_omegas)}]")
 
             if trial_lnL > best_lnL:
                 best_lnL = trial_lnL
