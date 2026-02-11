@@ -605,11 +605,13 @@ class M3Optimizer:
     """
     Optimize parameters for M3 (Discrete) codon model.
 
-    Estimates:
-    - kappa
-    - K omega values (one per site class)
-    - K-1 proportion parameters (K-th is 1 - sum of others)
-    - branch lengths
+    Matches PAML's codeml implementation exactly:
+    - Parameter layout: [kappa, logit_p0..logit_p_{K-2}, omega_0..omega_{K-1}, log(branches)...]
+    - Proportion transform: PAML's f_and_x (softmax with implicit last class)
+    - Bounds: kappa [1e-4, 999], logits [-99, 99], omegas [1e-6, 999]
+    - Initialization: PAML's GetInitialsCodon
+    - Optimizer: L-BFGS-B (equivalent to PAML's ming2)
+    - Post-optimization: sortwM3 (sort omegas ascending)
     """
 
     def __init__(
@@ -618,78 +620,64 @@ class M3Optimizer:
         tree: Tree,
         n_classes: int = 3,
         use_f3x4: bool = True,
-        optimize_branch_lengths: bool = True
+        optimize_branch_lengths: bool = True,
+        init_with_m0: bool = True
     ):
-        """
-        Initialize M3 optimizer.
-
-        Parameters
-        ----------
-        alignment : Alignment
-            Codon alignment
-        tree : Tree
-            Phylogenetic tree
-        n_classes : int
-            Number of site classes (default 3)
-        use_f3x4 : bool
-            Use F3X4 codon frequencies
-        optimize_branch_lengths : bool
-            Optimize individual branch lengths
-        """
         self.alignment = alignment
         self.tree = tree
         self.n_classes = n_classes
         self.use_f3x4 = use_f3x4
         self.optimize_branch_lengths = optimize_branch_lengths
+        self.init_with_m0 = init_with_m0
 
         if use_f3x4:
             self.pi = compute_codon_frequencies_f3x4(alignment)
         else:
             self.pi = np.ones(61) / 61
 
-        # Create Rust likelihood calculator
         self.calc = RustLikelihoodCalculator(alignment, tree)
         self.branch_nodes = [node for node in tree.postorder() if node.parent is not None]
         self.n_branches = len(self.branch_nodes)
         self.history = []
 
+    @staticmethod
+    def _f_and_x(logits):
+        """PAML's f_and_x: convert K-1 logits to K proportions.
+
+        f[k] = exp(x[k]) / (1 + sum(exp(x[j]))), k=0..K-2
+        f[K-1] = 1 / (1 + sum(exp(x[j])))
+        """
+        exp_logits = np.exp(np.asarray(logits, dtype=float))
+        denom = 1.0 + np.sum(exp_logits)
+        return np.append(exp_logits / denom, 1.0 / denom)
+
     def compute_log_likelihood(self, params: np.ndarray) -> float:
-        """Compute negative log-likelihood for optimization."""
-        # Extract kappa
-        kappa = np.exp(params[0])
+        """Compute negative log-likelihood.
 
-        # Extract K omega values
-        omegas = [np.exp(params[i]) for i in range(1, 1 + self.n_classes)]
+        PAML parameter layout:
+        [kappa, logit_p0..logit_p_{K-2}, omega_0..omega_{K-1}, log(branch)...]
+        """
+        K = self.n_classes
+        kappa = params[0]
 
-        # Extract K-1 proportion logits and compute proportions using softmax
-        # params layout: [log(kappa), log(omega1), ..., log(omegaK), logit1, ..., logitK-1, branches...]
-        logit_start = 1 + self.n_classes
-        logit_end = logit_start + (self.n_classes - 1)
-        logits = params[logit_start:logit_end]
+        logit_end = 1 + (K - 1)
+        proportions = self._f_and_x(params[1:logit_end])
 
-        # Use softmax to ensure proportions sum to 1
-        # Reserve space for the last proportion
-        exp_logits = np.exp(logits - np.max(logits))  # Numerical stability
-        proportions_unnorm = np.append(exp_logits, 1.0)  # Add 1.0 for last class
-        proportions = proportions_unnorm / proportions_unnorm.sum()
+        omega_end = logit_end + K
+        omegas = params[logit_end:omega_end].tolist()
 
-        # Update branch lengths
         if self.optimize_branch_lengths:
             for i, node in enumerate(self.branch_nodes):
-                node.branch_length = np.exp(params[logit_end + i])
+                node.branch_length = np.exp(params[omega_end + i])
             branch_scale = 1.0
         else:
-            branch_scale = np.exp(params[logit_end])
+            branch_scale = np.exp(params[omega_end])
 
-        # Create model
         model = M3CodonModel(
-            kappa=kappa,
-            omegas=omegas,
-            proportions=proportions.tolist(),
-            pi=self.pi
+            kappa=kappa, omegas=omegas,
+            proportions=proportions.tolist(), pi=self.pi
         )
 
-        # Compute likelihood
         try:
             Q_matrices = model.get_Q_matrices()
             prop_list, _ = model.get_site_classes()
@@ -700,16 +688,88 @@ class M3Optimizer:
             print(f"Error computing likelihood: {e}")
             return 1e10
 
-        # Store in history
-        hist_entry = {
-            'kappa': kappa,
-            'omegas': omegas,
+        self.history.append({
+            'kappa': kappa, 'omegas': omegas,
             'proportions': proportions.tolist(),
             'log_likelihood': log_likelihood
-        }
-        self.history.append(hist_entry)
+        })
 
         return -log_likelihood
+
+    def _build_bounds(self, K):
+        """Build PAML-style bounds for M3 parameters."""
+        bounds = [(1e-4, 999.0)]  # kappa (rateb)
+        bounds.extend([(-99.0, 99.0)] * (K - 1))  # proportion logits
+        bounds.extend([(1e-6, 999.0)] * K)  # omegas (wb[0]*0.01 for NSsites)
+        if self.optimize_branch_lengths:
+            bounds.extend([(np.log(0.0001), np.log(50))] * self.n_branches)
+        else:
+            bounds.append((np.log(0.01), np.log(100)))
+        return bounds
+
+    def _build_init_params(self, K, kappa, omega, rng=None):
+        """Build initial parameter vector using PAML's GetInitialsCodon formulas.
+
+        Parameters
+        ----------
+        K : int
+            Number of site classes.
+        kappa : float
+            Initial kappa (from M0 or control file).
+        omega : float
+            Initial omega (from M0 or control file).
+        rng : numpy.random.Generator or None
+            Random number generator for PAML-style rndu(). If None, uses
+            deterministic midpoint (rndu=0.5).
+        """
+        if rng is not None:
+            rndu = rng.random
+        else:
+            rndu = lambda: 0.5
+
+        kappa_init = 0.1 + kappa * (0.8 + 0.4 * rndu())
+        init_logits = [rndu() for _ in range(K - 1)]
+        init_omegas = [
+            omega * (0.5 + i * 2.0 / K * (0.8 + 0.4 * rndu()))
+            for i in range(K)
+        ]
+        init_omegas = [max(w, 1e-4) for w in init_omegas]
+
+        params = [kappa_init]
+        params.extend(init_logits)
+        params.extend(init_omegas)
+
+        if self.optimize_branch_lengths:
+            for node in self.branch_nodes:
+                params.append(np.log(max(node.branch_length, 0.001)))
+        else:
+            params.append(np.log(1.0))
+
+        return np.array(params), kappa_init, init_omegas, init_logits
+
+    @staticmethod
+    def _enforce_bounds(params, bounds):
+        """PAML SetxInitials: force initials inside bounds."""
+        for i in range(len(params)):
+            lo, hi = bounds[i]
+            if params[i] < lo * 1.005:
+                params[i] = lo * 1.05
+            if params[i] > hi / 1.005:
+                params[i] = hi / 1.05
+
+    def _extract_result(self, result_x, K):
+        """Extract and sort parameters from optimizer result."""
+        opt_kappa = result_x[0]
+        logit_end = 1 + (K - 1)
+        opt_proportions = self._f_and_x(result_x[1:logit_end]).tolist()
+        opt_omegas = result_x[logit_end:logit_end + K].tolist()
+
+        # PAML sortwM3: sort omegas ascending, reorder proportions
+        sorted_indices = np.argsort(opt_omegas)
+        opt_omegas = [opt_omegas[i] for i in sorted_indices]
+        opt_proportions = [opt_proportions[i] for i in sorted_indices]
+
+        return opt_kappa, opt_omegas, opt_proportions
 
     def optimize(
         self,
@@ -717,110 +777,91 @@ class M3Optimizer:
         init_omegas: list[float] = None,
         init_proportions: list[float] = None,
         method: str = 'L-BFGS-B',
-        maxiter: int = 200
+        maxiter: int = 500,
+        n_restarts: int = 10
     ) -> Tuple[float, list[float], list[float], float]:
         """
-        Optimize M3 parameters.
+        Optimize M3 parameters matching PAML's codeml.
 
-        Parameters
-        ----------
-        init_kappa : float
-            Initial kappa value
-        init_omegas : list[float], optional
-            Initial omega values (default: evenly spaced from 0.1 to 2.0)
-        init_proportions : list[float], optional
-            Initial proportions (default: equal proportions)
-        method : str
-            Optimization method
-        maxiter : int
-            Maximum iterations
+        Uses L-BFGS-B (equivalent to PAML's ming2) with PAML's initialization
+        formulas from GetInitialsCodon. Multiple restarts with random
+        initialization (PAML's rndu()) to avoid local optima.
 
-        Returns
-        -------
-        tuple
-            (kappa, omegas, proportions, log_likelihood)
+        Returns (kappa, omegas, proportions, log_likelihood)
         """
-        # Set defaults
-        if init_omegas is None:
-            # Evenly spaced omega values from 0.1 to 2.0
-            init_omegas = np.linspace(0.1, 2.0, self.n_classes).tolist()
-        if init_proportions is None:
-            # Equal proportions
-            init_proportions = [1.0 / self.n_classes] * self.n_classes
+        m0_omega = 2.1
+        if self.init_with_m0 and self.optimize_branch_lengths:
+            print("Initializing with M0...")
+            m0_optimizer = M0Optimizer(
+                self.alignment, self.tree,
+                use_f3x4=self.use_f3x4, optimize_branch_lengths=True
+            )
+            m0_kappa, m0_omega, m0_lnL = m0_optimizer.optimize()
+            init_kappa = m0_kappa
+            print(f"M0 initialization complete: kappa={m0_kappa:.4f}, omega={m0_omega:.4f}, lnL={m0_lnL:.6f}\n")
 
-        # Validate inputs
-        if len(init_omegas) != self.n_classes:
-            raise ValueError(f"init_omegas must have {self.n_classes} elements")
-        if len(init_proportions) != self.n_classes:
-            raise ValueError(f"init_proportions must have {self.n_classes} elements")
-        if not np.isclose(sum(init_proportions), 1.0):
-            raise ValueError("init_proportions must sum to 1")
+        K = self.n_classes
+        bounds = self._build_bounds(K)
 
-        # Build initial parameters
-        # Layout: [log(kappa), log(omega1), ..., log(omegaK), logit1, ..., logitK-1, branches...]
-        init_params_list = [np.log(init_kappa)]
-        init_params_list.extend([np.log(w) for w in init_omegas])
+        # Save M0-optimized branch lengths for restarts
+        m0_branch_lengths = [node.branch_length for node in self.branch_nodes]
 
-        # Initialize proportion logits (K-1 values, last is implicit)
-        # Use zeros which will give equal proportions after softmax
-        init_params_list.extend([0.0] * (self.n_classes - 1))
+        best_lnL = -np.inf
+        best_result = None
 
-        if self.optimize_branch_lengths:
-            init_branch_lengths = [node.branch_length for node in self.branch_nodes]
-            init_params_list.extend([np.log(max(bl, 0.001)) for bl in init_branch_lengths])
-        else:
-            init_params_list.append(np.log(1.0))
+        print(f"Starting M3 optimization (K={K}, {n_restarts} restarts)")
 
-        init_params = np.array(init_params_list)
+        for trial in range(n_restarts):
+            # Restore M0 branch lengths for each restart
+            for node, bl in zip(self.branch_nodes, m0_branch_lengths):
+                node.branch_length = bl
 
-        # Set bounds
-        bounds = [(np.log(0.1), np.log(100))]  # kappa
-        bounds.extend([(np.log(0.001), np.log(20))] * self.n_classes)  # omegas
-        bounds.extend([(-10, 10)] * (self.n_classes - 1))  # proportion logits
+            # First trial: deterministic midpoint (rndu=0.5)
+            # Subsequent trials: random initialization (PAML rndu style)
+            if trial == 0:
+                init_params, kappa_init, trial_omegas, trial_logits = \
+                    self._build_init_params(K, init_kappa, m0_omega, rng=None)
+            else:
+                rng = np.random.default_rng(seed=trial)
+                init_params, kappa_init, trial_omegas, trial_logits = \
+                    self._build_init_params(K, init_kappa, m0_omega, rng=rng)
 
-        if self.optimize_branch_lengths:
-            bounds.extend([(np.log(0.0001), np.log(50))] * self.n_branches)
-        else:
-            bounds.append((np.log(0.01), np.log(100)))
+            self._enforce_bounds(init_params, bounds)
+            self.history = []
 
-        print(f"Starting M3 optimization with method={method}, maxiter={maxiter}")
-        print(f"Number of site classes: {self.n_classes}")
-        print(f"Initial: kappa={init_kappa:.4f}")
-        print(f"Initial omegas: {', '.join([f'{w:.4f}' for w in init_omegas])}")
-        print(f"Initial proportions: {', '.join([f'{p:.4f}' for p in init_proportions])}")
+            result = minimize(
+                self.compute_log_likelihood,
+                init_params,
+                method=method,
+                bounds=bounds,
+                options={'maxiter': maxiter, 'ftol': 1e-15, 'gtol': 1e-10}
+            )
 
-        self.history = []
+            trial_lnL = -result.fun
+            opt_kappa, opt_omegas, opt_proportions = self._extract_result(result.x, K)
 
-        result = minimize(
-            self.compute_log_likelihood,
-            init_params,
-            method=method,
-            bounds=bounds,
-            options={'maxiter': maxiter}
-        )
+            print(f"  restart {trial}: lnL={trial_lnL:.6f}, "
+                  f"w=[{', '.join(f'{w:.4f}' for w in opt_omegas)}]")
 
-        # Extract optimized parameters
-        opt_kappa = np.exp(result.x[0])
-        opt_omegas = [np.exp(result.x[i]) for i in range(1, 1 + self.n_classes)]
+            if trial_lnL > best_lnL:
+                best_lnL = trial_lnL
+                best_result = (opt_kappa, opt_omegas, opt_proportions)
+                # Save branch lengths from best result
+                best_branch_lengths = [node.branch_length for node in self.branch_nodes]
 
-        # Extract proportions
-        logit_start = 1 + self.n_classes
-        logit_end = logit_start + (self.n_classes - 1)
-        logits = result.x[logit_start:logit_end]
-        exp_logits = np.exp(logits - np.max(logits))
-        proportions_unnorm = np.append(exp_logits, 1.0)
-        opt_proportions = (proportions_unnorm / proportions_unnorm.sum()).tolist()
+        opt_kappa, opt_omegas, opt_proportions = best_result
 
-        opt_log_likelihood = -result.fun
+        # Restore best branch lengths
+        for node, bl in zip(self.branch_nodes, best_branch_lengths):
+            node.branch_length = bl
 
         print(f"\nOptimization complete!")
         print(f"Final: kappa={opt_kappa:.4f}")
         print(f"Final omegas: {', '.join([f'{w:.4f}' for w in opt_omegas])}")
         print(f"Final proportions: {', '.join([f'{p:.4f}' for p in opt_proportions])}")
-        print(f"Log-likelihood: {opt_log_likelihood:.6f}")
-        print(f"Iterations: {len(self.history)}")
+        print(f"Log-likelihood: {best_lnL:.6f}")
 
-        return opt_kappa, opt_omegas, opt_proportions, opt_log_likelihood
+        return opt_kappa, opt_omegas, opt_proportions, best_lnL
 
 
 class M7Optimizer:

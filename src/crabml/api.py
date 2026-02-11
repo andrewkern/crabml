@@ -1176,16 +1176,19 @@ def optimize_model(
     # 4. Create optimizer
     optimizer_class, parser_func = OPTIMIZER_REGISTRY[model_upper]
 
-    # Separate init_with_m0 from other optimizer_kwargs
+    # Separate init_with_m0 and n_classes from other optimizer_kwargs
     init_with_m0 = optimizer_kwargs.pop('init_with_m0', True)  # Default True
+    n_classes = optimizer_kwargs.pop('n_classes', None)
 
-    # Build optimizer kwargs - M0 and M3 don't accept init_with_m0
+    # Build optimizer kwargs - M0 doesn't accept init_with_m0
     optimizer_init_kwargs = {
         'use_f3x4': use_f3x4,
         'optimize_branch_lengths': optimize_branch_lengths,
     }
-    if model_upper not in ('M0', 'M3'):
+    if model_upper not in ('M0',):
         optimizer_init_kwargs['init_with_m0'] = init_with_m0
+    if model_upper == 'M3' and n_classes is not None:
+        optimizer_init_kwargs['n_classes'] = n_classes
 
     optimizer = optimizer_class(
         align,
